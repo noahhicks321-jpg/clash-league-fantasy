@@ -107,6 +107,39 @@ class League:
     def __str__(self):
         return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
 
+        # ---------- Public API helpers for UI ----------
+    def get_user_cards(self):
+        """Return list of Card objects for the human player's team."""
+        if not hasattr(self, "user_team") or self.user_team is None:
+            return []
+        return self.user_team.roster
+
+    def get_user_team_chemistry(self) -> float:
+        """Return the human team's average chemistry (0–100)."""
+        if not hasattr(self, "user_team") or self.user_team is None:
+            return 0
+        return statistics.mean([c.chemistry for c in self.user_team.roster])
+
+    def get_standings(self):
+        """Return standings as a DataFrame-like structure for Streamlit table."""
+        import pandas as pd
+        data = []
+        for t in self.teams:
+            data.append({
+                "Team": t.name,
+                "W": t.wins,
+                "L": t.losses,
+                "Pct": round(t.wins / max(1, (t.wins + t.losses)), 3)
+            })
+        return pd.DataFrame(data).sort_values(by="W", ascending=False)
+
+    def get_upcoming_games(self, n: int = 5):
+        """Return the next N scheduled games."""
+        return self.schedule[:n]
+
+    def get_recent_news(self, n: int = 5):
+        """Return recent tweets/news items."""
+
     # ------------------------
     # Home Page Helpers
     # ------------------------
@@ -488,3 +521,4 @@ League.sim_next_pick = league_sim_next_pick
 League.human_pick = league_human_pick
 League.sim_to_user_turn = league_sim_to_user_turn
 League.sim_to_end = league_sim_to_end
+
