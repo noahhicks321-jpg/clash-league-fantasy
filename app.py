@@ -52,79 +52,57 @@ PAGES["Home"] = page_home
 # Render current page
 PAGES[st.session_state.page]()
 
-# === Continue in app.py ===
-# Milestone 2 – Hook league + draft screen placeholder
-
-# --- Page Handlers ---
-def page_home():
-    st.title("🏆 Fantasy Clash Royale League")
-
-    if st.button("Start New League"):
-        st.session_state.league = League(seed=1337, human_team_name="Your Team")
-        st.success("League created!")
-
-    if st.session_state.league:
-        st.write(st.session_state.league)
-
 def page_draft():
-    st.title("📋 Draft Room")
-    if not st.session_state.league:
-        st.warning("Start a league first on Home page.")
+    L = st.session_state.league
+
+    # --- Start Draft ---
+    if L.draft is None:
+        st.title("Fantasy Draft")
+        if st.button("Start Draft"):
+            L.start_draft()
+            st.rerun()
         return
-    st.write("Draft system coming next milestone...")
 
-# Register new pages
-PAGES["Home"] = page_home
-PAGES["Draft"] = page_draft
+    st.title(f"Draft - Round {L.draft.current_round}, Pick {L.draft.pick_in_round+1}")
 
-# Render current page
-PAGES[st.session_state.page]()
+    # --- Available Cards ---
+    st.subheader("Available Cards")
+    available = L.get_available_cards()
+    for c in available[:20]:  # only show top 20 by OVR for now
+        col1, col2, col3 = st.columns([3, 2, 2])
+        with col1:
+            st.write(f"{c.name} ({c.archetype.value}, {c.atk_type.value})")
+        with col2:
+            st.write(f"OVR {c.ovr}")
+        with col3:
+            if st.button(f"Draft {c.name}", key=f"pick_{c.id}"):
+                L.draft_pick("Human GM", c.id)
+                st.rerun()
 
-def page_home():
-    st.title("🏆 Fantasy Clash Royale League")
+    # --- Draft Controls ---
+    st.subheader("Draft Controls")
+    if st.button("Sim Next AI Pick"):
+        next_gm = L.draft.get_current_gm()
+        if next_gm != "Human GM":
+            L.draft_auto_pick(next_gm)
+        st.rerun()
 
-    if st.button("Start New League"):
-        st.session_state.league = League(seed=1337, human_team_name="Your Team")
-        st.success("League created!")
+    if st.button("Sim to End of Draft"):
+        while not L.draft.is_complete():
+            gm = L.draft.get_current_gm()
+            if gm == "Human GM":
+                # if user skips, auto pick best available
+                L.draft_auto_pick(gm)
+            else:
+                L.draft_auto_pick(gm)
+        st.rerun()
 
-    if st.session_state.league:
-        L = st.session_state.league
-        st.subheader("League Summary")
-        st.write(str(L))
+    # --- Draft Log ---
+    st.subheader("Draft Log")
+    for pick in L.get_draft_log():
+        st.write(f"Round {pick.round} | {pick.gm_name} drafted {pick.card_name} (OVR {pick.card_ovr})")
 
-        st.subheader("Teams")
-        for tid, team in L.teams.items():
-            st.write(f"- {team.name} (GM: {team.gm})")
-
-def page_draft():
-    st.title("📋 Fantasy Draft")
-
-    if st.button("Run Draft"):
-        results, grades = st.session_state.league.run_draft()
-        st.session_state.draft_results = results
-        st.session_state.draft_grades = grades
-
-    if "draft_results" in st.session_state:
-        st.subheader("Draft Results")
-        for team, card in st.session_state.draft_results:
-            st.write(f"{team.name} drafted {card.name} (OVR {card.ovr})")
-
-        st.subheader("Draft Grades")
-        for team, grade in st.session_state.draft_grades.items():
-            st.write(f"{team}: {grade}")
-
-PAGES = {
-    "Home": page_home,
-    "Draft": page_draft,
-}
-
-st.sidebar.title("Navigation")
-choice = st.sidebar.radio("Go to", list(PAGES.keys()))
-st.session_state.page = choice
-
-PAGES[st.session_state.page]()
-
-
-
-
+    # --- Draft Complete ---
+    if L.draft.is_complete():
+        st.success("Draft Complete!")
 
