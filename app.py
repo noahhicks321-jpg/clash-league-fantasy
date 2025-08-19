@@ -125,3 +125,82 @@ def page_home():
         tweets = league.get_recent_tweets()
         for t in tweets:
             st.write("💬", t)
+
+# === Draft Page (Snake 4 rounds, live, human picks, sim controls) ===
+import pandas as pd
+
+def page_draft():
+    st.title("📝 Draft Room (Snake)")
+
+    L: League = st.session_state.league
+
+    # Controls Row
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        if st.button("Start Draft", use_container_width=True):
+            L.start_draft()
+    with c2:
+        if st.button("Reset Draft", use_container_width=True):
+            L.reset_draft()
+    with c3:
+        if st.button("Sim to Your Pick", use_container_width=True):
+            L.sim_to_user_turn()
+    with c4:
+        if st.button("Sim Entire Draft", use_container_width=True):
+            L.sim_to_end()
+
+    # Draft status
+    dm = getattr(L, "draft_manager", None)
+    if not dm or not dm.is_active:
+        st.info("Draft not active. Click **Start Draft** to begin (adds 4 rookies automatically).")
+        if dm and dm.completed_picks:
+            st.subheader("Draft Results")
+            st.dataframe(pd.DataFrame(dm.last_picks_table(limit=200)))
+        return
+
+    # Round / Turn header
+    st.subheader(f"Round {dm.round_num} of {dm.rounds}")
+    current_tid = dm.current_team_id()
+    current_team = L.teams[current_tid] if current_tid else None
+    on_clock = current_team.name if current_team else "—"
+    st.markdown(f"**On the clock:** {on_clock} (GM: {current_team.gm if current_team else '—'})")
+
+    # If human turn -> selection UI
+    if dm.is_human_turn():
+        st.success("Your turn! Pick a card from the board below.")
+    else:
+        if st.button("Sim Next Pick (AI)", type="primary"):
+            L.sim_next_pick()
+            st.rerun()
+
+    # Board (available players)
+    st.markdown("### 🃏 Draft Board (Available Cards)")
+    board = dm.available_cards_table()
+    if board:
+        df_board = pd.DataFrame(board)
+        # nicer columns order
+        cols = ["id","name","ovr","rookie","archetype","atk_type","atk","def","speed","hit_speed","stamina","base_synergy"]
+        df_board = df_board[cols]
+
+        # human pick widgets only if it's our turn
+        if dm.is_human_turn():
+            # pick by selecting a row
+            sel = st.dataframe(df_board, use_container_width=True, hide_index=True)
+            # quick chooser: top N by OVR
+            top_names = [f"{r['name']} (OVR {r['ovr']})" for r in board[:30]]
+            name_to_id = {f"{r['name']} (OVR {r['ovr']})": r["id"] for r in board[:30]}
+            choice = st.selectbox("Quick-select from top board:", top_names)
+            pick_col1, pick_col2 = st.columns([1,3])
+            with pick_col1:
+                if st.button("Draft Selected", type="primary"):
+                    cid = name_to_id[choice]
+                    L.human_pick(cid)
+                    st.rerun()
+        else:
+            st.dataframe(df_board, use_container_width=True, hide_index=True)
+    else:
+        st.write("No available cards left.")
+
+    # Right column: Live feed of picks
+    st.markdown("### 📜 Live Picks")
+    st.dataframe(pd.DataFrame(dm.last_picks_table(limit=40)), use_container_width=True, hide_index=True)
