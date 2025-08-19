@@ -13,6 +13,8 @@ def page_home():
     st.title("🏆 Fantasy Clash Royale League")
     st.subheader(f"Season {st.session_state.league.season}")
 
+    render_quick_standings()
+
     col1, col2 = st.columns([2,1])
 
     with col1:
@@ -226,4 +228,21 @@ def page_draft():
     # Right column: Live feed of picks
     st.markdown("### 📜 Live Picks")
     st.dataframe(pd.DataFrame(dm.last_picks_table(limit=40)), use_container_width=True, hide_index=True)
+
+# --- FIX: Quick Standings Display ---
+import pandas as pd  # safe to leave at top if already imported
+
+def render_quick_standings():
+    standings = st.session_state.league.get_standings()
+    df = pd.DataFrame([{
+        "Team": t.name,
+        "GM": t.gm,
+        "Wins": t.wins,
+        "Losses": t.losses,
+        "Crowns For": t.crowns_for,
+        "Crowns Against": t.crowns_against
+    } for t in standings])
+
+    st.subheader("Quick Standings (Top 10)")
+    st.table(df.head(10))
 
