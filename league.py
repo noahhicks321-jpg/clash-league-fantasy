@@ -129,3 +129,60 @@ class DraftManager:
 
     def is_finished(self) -> bool:
         return self.current_round > self.rounds
+
+# === Milestone 3A: Human draft support ===
+
+class HumanDraftManager(DraftManager):
+    def __init__(self, league: League, rounds: int = 4, human_team_name: Optional[str] = None):
+        super().__init__(league, rounds)
+        self.human_team = None
+        if human_team_name:
+            for t in league.teams:
+                if t.name == human_team_name:
+                    self.human_team = t
+                    break
+
+    def next_pick(self, chosen_card_id: Optional[str] = None) -> Optional[DraftPick]:
+        if self.current_round > self.rounds:
+            return None
+
+        # which team is picking?
+        team_idx = (self.current_pick - 1) % len(self.league.teams)
+        team = self.league.teams[team_idx]
+
+        # if it's human GM
+        if self.human_team and team == self.human_team and chosen_card_id is None:
+            # pause so UI can let user pick
+            return None
+
+        # pick card
+        if self.human_team and team == self.human_team and chosen_card_id:
+            cid = chosen_card_id
+        else:
+            # AI auto-pick highest OVR left
+            cid = max(self.available_cards, key=lambda c: self.league.cards[c].ovr)
+
+        if cid not in self.available_cards:
+            return None
+        card = self.league.cards[cid]
+        self.available_cards.remove(cid)
+
+        # assign card
+        team.roster.append(cid)
+
+        pick = DraftPick(
+            round=self.current_round,
+            pick_num=self.current_pick,
+            team=team.name,
+            card=card.name,
+            ovr=card.ovr,
+        )
+        self.picks.append(pick)
+
+        # advance draft
+        self.current_pick += 1
+        if self.current_pick > len(self.league.teams):
+            self.current_pick = 1
+            self.current_round += 1
+
+        return pick
