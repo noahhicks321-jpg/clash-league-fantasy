@@ -282,5 +282,51 @@ class League:
     def __str__(self):
         return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
 
+    # ---------- Draft System ----------
+    def run_draft(self):
+        """Fantasy draft: each team picks 4 cards (3 starters, 1 backup)."""
+        available = list(self.cards.values())
+        self.rng.shuffle(available)
+
+        draft_results = []
+        for tid, team in self.teams.items():
+            team.roster = []
+            for pick in range(ROSTER_SIZE):
+                if not available:
+                    break
+                card = available.pop()
+                team.roster.append(card)
+                card.pick_history.append(self.season)
+                draft_results.append((team, card))
+
+            # Assign rookie badge to 4 random cards in league (per season)
+            for card in team.roster:
+                if self.rng.random() < 0.15:  # ~15% chance rookie
+                    card.is_rookie = True
+
+        # Retire 3 cards each season
+        retirements = self.rng.sample(list(self.cards.values()), k=3)
+        for c in retirements:
+            c.is_retired = True
+
+        # Draft grades
+        grades = {}
+        for tid, team in self.teams.items():
+            avg_ovr = statistics.mean([c.ovr for c in team.roster])
+            if avg_ovr >= 85:
+                grade = "A"
+            elif avg_ovr >= 75:
+                grade = "B"
+            elif avg_ovr >= 65:
+                grade = "C"
+            elif avg_ovr >= 55:
+                grade = "D"
+            else:
+                grade = "F"
+            grades[team.name] = grade
+
+        return draft_results, grades
+
+
 
 
