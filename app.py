@@ -1,71 +1,111 @@
 import streamlit as st
+from league import get_league
 
-# Set up page
-st.set_page_config(page_title="Clash Royale Fantasy League Sim", layout="wide")
+# -----------------
+# UI CONFIG
+# -----------------
+st.set_page_config(page_title="Clash Royale Fantasy League", layout="wide")
 
-# Title
-st.title("🏆 Clash Royale Fantasy League Sim")
+# Custom CSS for dark sports-style theme
+st.markdown(
+    """
+    <style>
+    body { background: linear-gradient(135deg, #0a0f1d, #1c1f33); color: white; }
+    .sidebar .sidebar-content { background: #10131f; }
+    h1, h2, h3 { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; }
+    .stButton>button { background: #e63946; color: white; border-radius: 10px; }
+    .stButton>button:hover { background: #ff6b81; }
+    .metric { background: #22273b; padding: 12px; border-radius: 12px; text-align: center; }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# Tabs for features
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12 = st.tabs([
-    "🏠 Home",
-    "🧑‍🤝‍🧑 Teams",
-    "📊 Stats",
-    "🃏 Cards",
-    "🧑‍💼 GMs",
-    "⚔️ Rivalries",
-    "🏅 Awards & HOF",
-    "📜 History",
-    "📰 News",
-    "🔁 Trades",
-    "🛠️ Patches",
-    "📈 Ranks"
+# -----------------
+# LEAGUE STATE
+# -----------------
+L = get_league()
+
+# Sidebar navigation
+st.sidebar.title("⚔️ Fantasy League Menu")
+page = st.sidebar.radio("Navigate", [
+    "Home", "Teams", "Cards", "Stats", "GMs", "Rivalries", "Awards & HOF", 
+    "League History", "News", "Trades", "Patches", "Rankings"
 ])
 
-with tab1:
-    st.header("Newsfeed + Standings coming soon")
-    st.write("This is where live standings and news updates will appear.")
+# -----------------
+# PAGES
+# -----------------
+if page == "Home":
+    st.title("🏠 League Home")
+    st.subheader("Live Standings")
+    standings = L.get_standings()
+    st.dataframe(standings)
 
-with tab2:
-    st.header("Team Pages + History")
-    st.write("Team rosters, chemistry, fatigue, and historical performance.")
+    st.subheader("Latest Headlines")
+    for headline in L.get_news():
+        st.write(f"- {headline}")
 
-with tab3:
-    st.header("League-wide Stats + Records")
-    st.write("Track all-time stats, records, and milestones.")
+elif page == "Teams":
+    st.title("🧑‍🤝‍🧑 Teams")
+    team = st.selectbox("Choose a Team", [t.name for t in L.teams])
+    T = L.get_team(team)
+    st.header(T.name)
+    st.write(f"GM: {T.gm.name}")
+    st.write(f"Record: {T.wins}-{T.losses}")
+    st.write("### Current Lineup")
+    st.table(T.lineup_stats())
 
-with tab4:
-    st.header("Card Database & Info")
-    st.write("Full card stats: ATK, DEF, Speed, Hit Speed, Synergy, Stamina, Pick Rate, etc.")
+elif page == "Cards":
+    st.title("🃏 Card Database")
+    cards_df = L.get_all_cards()
+    st.dataframe(cards_df)
 
-with tab5:
-    st.header("GM Stats & Legacy")
-    st.write("Track GM rivalries, records, awards, and bragging rights.")
+elif page == "Stats":
+    st.title("📊 Stats & Records")
+    leaders = L.get_stat_leaders()
+    st.write("### Stat Leaders")
+    st.table(leaders)
 
-with tab6:
-    st.header("Rivalry Tracker")
-    st.write("Track rivalry records and special buffs from rivalry wins.")
+elif page == "GMs":
+    st.title("🧑‍💼 GM Tracker")
+    gm_df = L.get_gm_leaderboard()
+    st.dataframe(gm_df)
 
-with tab7:
-    st.header("Awards + HOF")
-    st.write("MVPs, ROTY, Finals MVPs, Most Improved, All-League teams, and Hall of Fame.")
+elif page == "Rivalries":
+    st.title("⚔️ Rivalries")
+    st.dataframe(L.get_rivalries())
 
-with tab8:
-    st.header("League History")
-    st.write("Past champions, patches, meta shifts, and era changes.")
+elif page == "Awards & HOF":
+    st.title("🏅 Awards & Hall of Fame")
+    st.write("### Season Awards")
+    st.table(L.get_awards())
+    st.write("### Hall of Fame")
+    st.table(L.get_hof())
 
-with tab9:
-    st.header("News")
-    st.write("Auto-generated blogs, GM Twitter trash talk, and fan chatter.")
+elif page == "League History":
+    st.title("📜 League History")
+    history = L.get_history()
+    for season in history:
+        st.subheader(f"Season {season['season_num']}")
+        st.write(season['summary'])
 
-with tab10:
-    st.header("Trades")
-    st.write("Trade finder, proposals, and deadline week drama.")
+elif page == "News":
+    st.title("📰 Media & News")
+    for post in L.get_news_feed():
+        st.write(post)
 
-with tab11:
-    st.header("Patches")
-    st.write("Buffs, nerfs, meta shifts, and previews of next season's changes.")
+elif page == "Trades":
+    st.title("🔄 Trades")
+    st.write("Upcoming trade finder and deadline week tracker.")
+    st.table(L.get_trade_rumors())
 
-with tab12:
-    st.header("GM Ranks + Bonuses")
-    st.write("Rank progression from Bronze → Hall of Fame, with stat bonuses.")
+elif page == "Patches":
+    st.title("🛠️ Patches")
+    st.table(L.get_patches())
+
+elif page == "Rankings":
+    st.title("🏆 GM Rankings")
+    gm_df = L.get_gm_leaderboard()
+    st.dataframe(gm_df)
+    st.write("Ranks auto-update with points from wins/losses/playoffs.")
