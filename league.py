@@ -1153,6 +1153,34 @@ class League:
     def reset_rng(self, seed: Optional[int]):
         self.rng = random.Random(seed if seed is not None else DEFAULT_SEED)
 
+# ---------- Card Model ----------
+@dataclass
+class Card:
+    name: str
+    archetype: Archetype
+    atk_type: AtkType
+    stats: Dict[str, int]
+    ovr: int
+    seasons_left: int = field(default_factory=lambda: random.randint(SEASON_MIN_LIFE, SEASON_MAX_LIFE))
+    pick_history: List[int] = field(default_factory=list)  # seasons where drafted
+    badges: Set[str] = field(default_factory=set)          # e.g. {"rookie", "seasonal"}
+    contribution_history: List[float] = field(default_factory=list)  # track % contribution
+
+    def add_pick(self, season: int):
+        self.pick_history.append(season)
+
+    @property
+    def pick_rate(self) -> float:
+        """% of seasons picked (out of total league seasons)."""
+        if not self.pick_history:
+            return 0.0
+        total = max(self.pick_history)  # assume seasons are 1..N
+        return len(set(self.pick_history)) / total * 100
+
+    def __str__(self):
+        return f"{self.name} (OVR {self.ovr}, {self.archetype.value}, {self.atk_type.value})"
+
+
 # === League Class ===
 class League:
     def __init__(self, seed: int = DEFAULT_SEED, human_team_name: Optional[str] = None):
@@ -1216,5 +1244,6 @@ class League:
 
     def __str__(self):
         return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
+
 
 
