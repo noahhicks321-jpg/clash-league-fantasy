@@ -2,9 +2,17 @@
 from __future__ import annotations
 import random
 from dataclasses import dataclass
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
-# ---------- Card & Team Models ----------
+# ---------- Constants ----------
+NUM_TEAMS = 30
+ROSTER_SIZE = 4            # 3 starters + 1 backup
+STARTERS = 3
+BACKUPS = 1
+MIN_CARD_POOL = 160
+MAX_CARD_POOL = 170
+
+# ---------- Data Classes ----------
 @dataclass
 class Card:
     id: int
@@ -14,131 +22,106 @@ class Card:
 @dataclass
 class Team:
     name: str
-    gm: str
-    roster: List[Card]
+    roster: List[int]  # card IDs
 
 # ---------- Draft Manager ----------
 class DraftManager:
-    def __init__(self, teams: List[Team], cards: List[Card]):
-        self.teams = teams
-        self.cards = {c.id: c for c in cards}
-        self.available_ids = list(self.cards.keys())
-
-        self.round_num = 1
-        self.pick_num = 1
-        self.max_rounds = 4
-        self.current_index = 0
-
+    def __init__(self, league: League, max_rounds: int = 4):
+        self.league = league
+        self.round = 1
+        self.max_rounds = max_rounds
+        self.pick_no = 1
+        self.total_picks = league.num_teams * max_rounds
         self.log: List[str] = []
-        self.finished = False
+        self.done = False
 
-    @property
+        # Random draft order each season
+        self.order = list(league.teams.keys())
+        random.shuffle(self.order)
+        self.cur_idx = 0
+
     def current_gm(self) -> str:
-        return self.teams[self.current_index].gm
+        return self.order[self.cur_idx]
 
-    def pick_card(self, gm: str, card_id: int):
-        if self.finished:
+    def advance_pick(self):
+        """Move to next pick, round, or finish draft."""
+        self.cur_idx += 1
+        self.pick_no += 1
+        if self.cur_idx >= len(self.order):
+            self.cur_idx = 0
+            self.round += 1
+        if self.pick_no > self.total_picks:
+            self.done = True
+            self.league.draft = None
+
+    def record_pick(self, gm: str, card: Card):
+        self.log.append(f"Round {self.round}, Pick {self.pick_no}: {gm} drafted {card.name} (OVR {card.ovr})")
+
+    def auto_pick(self):
+        gm = self.current_gm()
+        available = self.league.get_available_cards()
+        if not available:
+            self.advance_pick()
             return
-        if card_id not in self.available_ids:
-            return
+        card = random.choice(available)
+        self.league.teams[gm].roster.append(card.id)
+        self.record_pick(gm, card)
+        self.advance_pick()
 
-        team = self.teams[self.current_index]
-        if team.gm != gm:
-            return  # not your turn
-
-        card = self.cards[card_id]
-        team.roster.append(card)
-        self.available_ids.remove(card_id)
-
-        self.log.append(f"Round {self.round_num}, Pick {self.pick_num}: {gm} drafted {card.name} (OVR {card.ovr})")
-
-        # advance draft
-        self.pick_num += 1
-        self.current_index += 1
-        if self.current_index >= len(self.teams):
-            self.current_index = 0
-            self.round_num += 1
-            self.pick_num = 1
-        if self.round_num > self.max_rounds:
-            self.finished = True
-
-    def auto_pick(self, gm: str):
-        if not self.available_ids:
-            return
-        best_id = max(self.available_ids, key=lambda cid: self.cards[cid].ovr)
-        self.pick_card(gm, best_id)
+    def user_pick(self, card_id: int):
+        gm = self.current_gm()
+        card = self.league.cards[card_id]
+        self.league.teams[gm].roster.append(card.id)
+        self.record_pick(gm, card)
+        self.advance_pick()
 
 # ---------- League ----------
 class League:
-    def __init__(self, seed: int = 1337, human_team_name: Optional[str] = "You"):
-        self.rng = random.Random(seed)
-
-        # --- generate cards ---
+    def __init__(self, seed: int = 1337, human_team_name: Optional[str] = "Your Team"):
+        random.seed(seed)
+        self.season = 1
+        self.num_teams = NUM_TEAMS
         self.cards: Dict[int, Card] = {}
-        for cid in range(1, 171):  # 170 cards
-            name = f"Card{cid}"
-            ovr = self.rng.randint(60, 99)
+        self.teams: Dict[str, Team] = {}
+        self.human_team_name = human_team_name
+        self.draft: Optional[DraftManager] = None
+
+        self._init_cards()
+        self._init_teams()
+
+    # ----- Initialization -----
+    def _init_cards(self):
+        for cid in range(MIN_CARD_POOL):
+            name = f"Card {cid+1}"
+            ovr = random.randint(60, 99)
             self.cards[cid] = Card(id=cid, name=name, ovr=ovr)
 
-        # --- generate teams ---
-        self.teams: List[Team] = []
-        for i in range(30):
-            gm_name = human_team_name if i == 0 else f"GM{i}"
-            self.teams.append(Team(name=f"Team {i+1}", gm=gm_name, roster=[]))
+    def _init_teams(self):
+        for i in range(self.num_teams):
+            name = self.human_team_name if (i == 0 and self.human_team_name) else f"Team {i+1}"
+            self.teams[name] = Team(name=name, roster=[])
 
-        # draft state
-        self.draft: Optional[DraftManager] = None
-        self.draft_in_progress = False
-
-    def __str__(self):
-        return f"League: {len(self.teams)} teams, {len(self.cards)} cards"
-
-    # ---------- Draft API ----------
+    # ----- Draft Controls -----
     def start_draft(self):
-        self.draft = DraftManager(self.teams, list(self.cards.values()))
-        self.draft_in_progress = True
+        self.draft = DraftManager(self, max_rounds=4)
 
-    def draft_pick(self, gm: str, card_id: int):
-        if self.draft:
-            self.draft.pick_card(gm, card_id)
-            if self.draft.finished:
-                self.draft_in_progress = False
+    def draft_pick(self, card_id: int):
+        if self.draft and not self.draft.done:
+            self.draft.user_pick(card_id)
 
-    def draft_auto_pick(self, gm: str):
-        if self.draft:
-            self.draft.auto_pick(gm)
-            if self.draft.finished:
-                self.draft_in_progress = False
-
-    def get_available_cards(self) -> List[Card]:
-        if not self.draft:
-            return []
-        return [self.cards[cid] for cid in self.draft.available_ids]
+    def draft_auto_pick(self):
+        if self.draft and not self.draft.done:
+            self.draft.auto_pick()
 
     def get_draft_log(self) -> List[str]:
-        if not self.draft:
-            return []
-        return self.draft.log
+        if self.draft:
+            return self.draft.log
+        return []
 
-    def get_draft_results(self):
-        results = []
-        grades: Dict[str, str] = {}
-        if not self.draft:
-            return results, grades
+    def get_available_cards(self) -> List[Card]:
+        drafted = {cid for t in self.teams.values() for cid in t.roster}
+        return [c for c in self.cards.values() if c.id not in drafted]
 
-        for team in self.teams:
-            total_ovr = sum(c.ovr for c in team.roster)
-            avg_ovr = total_ovr / len(team.roster) if team.roster else 0
-            grade = self._grade_from_ovr(avg_ovr)
-            grades[team.gm] = grade
-            for c in team.roster:
-                results.append(f"{team.gm} drafted {c.name} (OVR {c.ovr})")
-
-        return results, grades
-
-    def _grade_from_ovr(self, avg: float) -> str:
-        if avg >= 90: return "A"
-        if avg >= 80: return "B"
-        if avg >= 70: return "C"
-        if avg >= 60: return "D"
-        return "F"
+    # ----- String -----
+    def __str__(self):
+        return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
