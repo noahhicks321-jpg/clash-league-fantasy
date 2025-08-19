@@ -1285,31 +1285,30 @@ class League:
         ]
         return reactions
 
-    # ---------- League Leaders ----------
+ 
+            # ---------- League Leaders ----------
     def get_league_leaders(self, stat: str, top_n: int = 10):
         """
         Return top N players across the league for a given stat.
         Supported stats: 'crowns', 'avg_score', 'ovr'
-        Currently returns placeholder values until sim engine is wired.
+        Returns dicts with 'id', 'name', 'value' for UI.
         """
-        leaders = []
+        results = []
 
         if stat == "ovr":
-            # top cards by overall rating
-            leaders = sorted(self.cards, key=lambda c: c.ovr, reverse=True)[:top_n]
-            return [(card.name, card.ovr) for card in leaders]
+            leaders = sorted(enumerate(self.cards), key=lambda x: x[1].ovr, reverse=True)[:top_n]
+            results = [{"id": idx, "name": card.name, "value": card.ovr} for idx, card in leaders]
 
         elif stat == "crowns":
-            # placeholder: each card just gets a fake random score until sim runs
-            leaders = [(card.name, self.rng.randint(10, 100)) for card in self.cards[:top_n]]
-            return leaders
+            leaders = [(idx, card, self.rng.randint(10, 100)) for idx, card in enumerate(self.cards[:top_n])]
+            results = [{"id": idx, "name": card.name, "value": crowns} for idx, card, crowns in leaders]
 
         elif stat == "avg_score":
-            leaders = sorted(self.teams, key=lambda t: t.avg_score, reverse=True)[:top_n]
-            return [(team.name, team.avg_score) for team in leaders]
+            leaders = sorted(enumerate(self.teams), key=lambda x: x[1].avg_score, reverse=True)[:top_n]
+            results = [{"id": idx, "name": team.name, "value": team.avg_score} for idx, team in leaders]
 
-        else:
-            return []
+        return results
+
 
 
 
