@@ -40,3 +40,32 @@ st.session_state.page = choice
 
 # run selected page
 PAGES[choice]()
+
+# === Milestone 2B: Draft page starter ===
+
+def page_draft():
+    st.title("📝 Draft Room")
+
+    if "draft" not in st.session_state:
+        st.session_state.draft = DraftManager(L)
+
+    draft: DraftManager = st.session_state.draft
+
+    if not draft.is_finished():
+        if st.button("Sim Next Pick"):
+            pick = draft.next_pick()
+            if pick:
+                st.success(f"Round {pick.round}, Pick {pick.pick_num}: {pick.team} drafted {pick.card} (OVR {pick.ovr})")
+    else:
+        st.success("✅ Draft complete!")
+
+    # show draft results table
+    if draft.picks:
+        table = [{"Round": p.round, "Pick": p.pick_num, "Team": p.team, "Card": p.card, "OVR": p.ovr} for p in draft.picks]
+        st.table(table)
+
+PAGES = {
+    "Home": page_home,
+    "Standings": page_standings,
+    "Draft": page_draft,
+}
