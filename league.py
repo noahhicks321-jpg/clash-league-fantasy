@@ -40,6 +40,9 @@ class League:
         self._init_cards()
         self._init_teams(human_team_name)
 
+            self.schedule = self._make_schedule()
+        self.news_feed = []  # initialize empty news feed
+
     # --- Initialization ---
     def _init_cards(self):
         """Generate placeholder cards for now"""
@@ -531,5 +534,6 @@ League.sim_next_pick = league_sim_next_pick
 League.human_pick = league_human_pick
 League.sim_to_user_turn = league_sim_to_user_turn
 League.sim_to_end = league_sim_to_end
+
 
 
