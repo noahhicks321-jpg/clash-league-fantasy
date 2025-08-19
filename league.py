@@ -106,3 +106,70 @@ class League:
 
     def __str__(self):
         return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
+
+    # ------------------------
+    # Home Page Helpers
+    # ------------------------
+
+    def get_team_chemistry(self, team_name: str) -> float:
+        """Return team chemistry as percentage based on synergies of drafted cards."""
+        team = self.teams.get(team_name)
+        if not team or not team.roster:
+            return 0.0
+        # super simple formula: avg synergy bonus across roster
+        total = 0
+        count = 0
+        for card in team.roster:
+            total += card.synergy_score
+            count += 1
+        return (total / max(1, count)) * 100
+
+    def get_standings(self):
+        """Return quick standings as a DataFrame."""
+        import pandas as pd
+        data = []
+        for t in self.teams.values():
+            data.append({
+                "Team": t.name,
+                "W": t.wins,
+                "L": t.losses,
+                "Pct": round(t.wins / max(1, (t.wins + t.losses)), 3)
+            })
+        df = pd.DataFrame(data).sort_values(["W", "Pct"], ascending=[False, False])
+        return df
+
+    def get_team_cards(self, team_name: str):
+        """Return list of card objects on a team."""
+        team = self.teams.get(team_name)
+        return team.roster if team else []
+
+    def get_recent_tweets(self, limit: int = 8):
+        """Return a mixed list of GM + fan tweets (recent chatter)."""
+        # right now just stub random text
+        posts = []
+        for _ in range(limit):
+            gm = self.rng.choice(list(self.teams.values())).gm
+            fan_msg = self.rng.choice([
+                "That draft was wild!",
+                "No way we lose next game 😤",
+                "Buff incoming??",
+                "This synergy is broken lol",
+                "Trust the process.",
+                "We run the league!"
+            ])
+            if self.rng.random() < 0.5:
+                posts.append(f"GM {gm}: {fan_msg}")
+            else:
+                posts.append(f"Fan: {fan_msg}")
+        return posts
+
+    def get_upcoming_games(self, team_name: str, num: int = 3):
+        """Return list of upcoming games for a team."""
+        schedule = self.schedule.get(team_name, [])
+        upcoming = []
+        for g in schedule:
+            if g["game_num"] >= self.current_game:
+                upcoming.append(g)
+            if len(upcoming) >= num:
+                break
+        return upcoming
