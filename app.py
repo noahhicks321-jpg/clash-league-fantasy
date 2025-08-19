@@ -69,3 +69,49 @@ PAGES = {
     "Standings": page_standings,
     "Draft": page_draft,
 }
+
+# === Milestone 3B: Human interactive draft ===
+
+def page_draft():
+    st.title("📝 Draft Room")
+
+    if "draft" not in st.session_state:
+        # initialize with human GM = "Team 1" for now
+        st.session_state.draft = HumanDraftManager(L, human_team_name="Team 1")
+
+    draft: HumanDraftManager = st.session_state.draft
+
+    if not draft.is_finished():
+        team_idx = (draft.current_pick - 1) % len(L.teams)
+        current_team = L.teams[team_idx]
+
+        st.subheader(f"Round {draft.current_round}, Pick {draft.current_pick}")
+        st.write(f"On the clock: **{current_team.name}**")
+
+        if draft.human_team and current_team == draft.human_team:
+            st.info("Your pick! Choose a card:")
+
+            available = [(cid, L.cards[cid]) for cid in draft.available_cards]
+            available_sorted = sorted(available, key=lambda x: x[1].ovr, reverse=True)
+
+            card_names = [f"{c.name} (OVR {c.ovr})" for cid, c in available_sorted]
+            card_map = {f"{c.name} (OVR {c.ovr})": cid for cid, c in available_sorted}
+
+            choice = st.selectbox("Available Cards:", card_names)
+            if st.button("Draft Player"):
+                cid = card_map[choice]
+                pick = draft.next_pick(chosen_card_id=cid)
+                if pick:
+                    st.success(f"You drafted {pick.card} (OVR {pick.ovr})")
+        else:
+            if st.button("Sim Next Pick"):
+                pick = draft.next_pick()
+                if pick:
+                    st.success(f"{pick.team} drafted {pick.card} (OVR {pick.ovr})")
+    else:
+        st.success("✅ Draft complete!")
+
+    # show draft results
+    if draft.picks:
+        table = [{"Round": p.round, "Pick": p.pick_num, "Team": p.team, "Card": p.card, "OVR": p.ovr} for p in draft.picks]
+        st.table(table)
