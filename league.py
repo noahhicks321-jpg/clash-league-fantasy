@@ -4,6 +4,7 @@
 import random
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
+import statistics
 
 # ---------- Card ----------
 @dataclass
@@ -29,15 +30,15 @@ class Team:
 
 # ---------- League ----------
 class League:
-  class League:
     def __init__(self, seed=1337, human_team_name=None):
         self.rng = random.Random(seed)
         self.season = 1
 
         # Teams and cards
-        self.teams = []
-        self.cards = {}
+        self.teams: Dict[int, Team] = {}
+        self.cards: Dict[int, Card] = {}
         self.human_team_name = human_team_name
+        self.user_team: Optional[Team] = None
 
         # Schedule + results
         self.schedule = {}
@@ -48,7 +49,7 @@ class League:
 
         # Generate cards + teams
         self._init_cards()
-        self._init_teams()
+        self._init_teams(human_team_name)
         self._init_schedule()
 
     # --- Initialization ---
@@ -542,6 +543,7 @@ League.sim_next_pick = league_sim_next_pick
 League.human_pick = league_human_pick
 League.sim_to_user_turn = league_sim_to_user_turn
 League.sim_to_end = league_sim_to_end
+
 
 
 
