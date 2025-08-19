@@ -229,6 +229,22 @@ class Draft:
                 score += 5
         return score
 
+@dataclass
+class Card:
+    id: int
+    name: str
+    archetype: Archetype
+    atk_type: AtkType
+    stats: Dict[str, int]
+    ovr: int
+    seasons_remaining: int = 0
+    crowns_total: int = 0
+    contribution_pct: float = 0.0
+    pick_history: List[int] = field(default_factory=list)
+
+    def __str__(self):
+        return f"{self.name} (OVR {self.ovr})"
+
 # ---------- League Class (Milestone 3) ----------
 
 class League:
@@ -326,6 +342,7 @@ class League:
             grades[team.name] = grade
 
         return draft_results, grades
+
 
 
 
