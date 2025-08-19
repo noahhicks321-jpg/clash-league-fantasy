@@ -8,21 +8,6 @@ if "league" not in st.session_state:
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
-# ---------- Page Functions ----------
-def page_home():
-    st.title("Fantasy Clash Royale League")
-    st.write("Welcome to the Fantasy Clash Royale League.")
-    st.write("Season overview, standings, and featured news will go here.")
-
-    # Quick standings table
-    standings = st.session_state.league.get_standings()
-    st.subheader("Quick Standings")
-    data = [
-        {"Team": t.name, "Wins": t.wins, "Losses": t.losses}
-        for t in standings
-    ]
-    st.table(data)
-
 # ---------- Page Navigation ----------
 PAGES = {
     "Home": page_home,
@@ -95,5 +80,6 @@ st.session_state.page = choice
 
 # Render selected page
 PAGES[st.session_state.page]()
+
 
 
