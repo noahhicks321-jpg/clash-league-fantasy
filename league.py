@@ -1268,6 +1268,25 @@ class League:
     def __str__(self):
         return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
 
+    def __str__(self):
+        return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
+
+    # ---------- Patch Notes + Reactions ----------
+    def get_patch_reactions_feed(self) -> List[str]:
+        """
+        Returns a list of fake GM + fan reactions to the most recent patch notes.
+        Right now just generates placeholder text so UI doesn't break.
+        """
+        reactions = [
+            "GM 1: Can't believe my star card got nerfed right before the draft... rigged!",
+            "Fan: Finally! They killed the Shadow Wyrm meta 🤣",
+            "GM 2: Patch looks fair, time to adapt.",
+            "Fan: Buff my favorite card or we riot."
+        ]
+        return reactions
+
+
+
 
 
 
