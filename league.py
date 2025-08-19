@@ -71,3 +71,61 @@ class League:
 
     def __str__(self):
         return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
+
+# === Milestone 2A: Draft foundation ===
+
+@dataclass
+class DraftPick:
+    round: int
+    pick_num: int
+    team: str
+    card: str
+    ovr: int
+
+class DraftManager:
+    def __init__(self, league: League, rounds: int = 4):
+        self.league = league
+        self.rounds = rounds
+        self.current_round = 1
+        self.current_pick = 1
+        self.picks: List[DraftPick] = []
+        # all cards start in the pool
+        self.available_cards = set(league.cards.keys())
+
+    def next_pick(self) -> Optional[DraftPick]:
+        if self.current_round > self.rounds:
+            return None
+
+        # which team is picking?
+        team_idx = (self.current_pick - 1) % len(self.league.teams)
+        team = self.league.teams[team_idx]
+
+        # choose best card (simplified AI = highest OVR left)
+        if len(self.available_cards) == 0:
+            return None
+        cid = max(self.available_cards, key=lambda c: self.league.cards[c].ovr)
+        card = self.league.cards[cid]
+        self.available_cards.remove(cid)
+
+        # assign card to team
+        team.roster.append(cid)
+
+        pick = DraftPick(
+            round=self.current_round,
+            pick_num=self.current_pick,
+            team=team.name,
+            card=card.name,
+            ovr=card.ovr,
+        )
+        self.picks.append(pick)
+
+        # advance draft
+        self.current_pick += 1
+        if self.current_pick > len(self.league.teams):
+            self.current_pick = 1
+            self.current_round += 1
+
+        return pick
+
+    def is_finished(self) -> bool:
+        return self.current_round > self.rounds
