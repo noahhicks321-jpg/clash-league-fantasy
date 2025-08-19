@@ -1152,3 +1152,69 @@ class League:
     # Utility
     def reset_rng(self, seed: Optional[int]):
         self.rng = random.Random(seed if seed is not None else DEFAULT_SEED)
+
+# === League Class ===
+class League:
+    def __init__(self, seed: int = DEFAULT_SEED, human_team_name: Optional[str] = None):
+        # RNG seeded for reproducibility
+        self.rng = random.Random(seed)
+
+        # Human GM team name (if None → assign randomly later)
+        self.human_team_name = human_team_name
+
+        # Core state
+        self.season = 1
+        self.teams: List["Team"] = []
+        self.cards: List["Card"] = []
+        self.rivalries: Dict[Tuple[str, str], int] = {}
+        self.history: Dict[str, List] = defaultdict(list)  # awards, champions, stats, etc.
+
+        # Build the initial league
+        self._init_cards()
+        self._init_teams()
+
+    # ---------- Internal setup ----------
+    def _init_cards(self):
+        """Generate card pool of 160–170 random cards with archetypes & stats."""
+        pool_size = self.rng.randint(MIN_CARD_POOL, MAX_CARD_POOL)
+        for _ in range(pool_size):
+            name = self._gen_card_name()
+            archetype = self.rng.choice(list(Archetype))
+            atk_type = self.rng.choice(list(AtkType))
+            stats = {
+                "atk": self.rng.randint(40, 100),
+                "def": self.rng.randint(40, 100),
+                "speed": self.rng.randint(40, 100),
+                "hit_speed": self.rng.randint(40, 100),
+                "stamina": self.rng.randint(40, 100),
+            }
+            # Compute OVR as average of stats for now
+            ovr = int(sum(stats.values()) / len(stats))
+            card = Card(name=name, archetype=archetype, atk_type=atk_type, stats=stats, ovr=ovr)
+            self.cards.append(card)
+
+    def _init_teams(self):
+        """Generate 30 teams with GMs, names, and rivalry scaffolding."""
+        for i in range(NUM_TEAMS):
+            team_name = self._gen_team_name(i)
+            gm_name = f"GM {i+1}"
+            team = Team(name=team_name, gm=gm_name)
+            self.teams.append(team)
+
+        # Initialize rivalries (empty intensity to start)
+        for a, b in combinations([t.name for t in self.teams], 2):
+            self.rivalries[(a, b)] = 0
+
+    # ---------- Helpers ----------
+    def _gen_card_name(self) -> str:
+        """Procedurally generate cool card names from syllables."""
+        return "".join(self.rng.choice(NAME_SYLLABLES).capitalize() for _ in range(self.rng.randint(2, 3)))
+
+    def _gen_team_name(self, idx: int) -> str:
+        word = self.rng.choice(TEAM_WORDS)
+        return f"{word} {idx+1}"
+
+    def __str__(self):
+        return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
+
+
