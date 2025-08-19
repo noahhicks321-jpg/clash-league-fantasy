@@ -229,4 +229,58 @@ class Draft:
                 score += 5
         return score
 
+# ---------- League Class (Milestone 3) ----------
+
+class League:
+    def __init__(self, seed: int = DEFAULT_SEED, human_team_name: Optional[str] = None):
+        self.rng = random.Random(seed)
+        self.season = 1
+        self.cards: Dict[int, Card] = {}
+        self.teams: Dict[int, Team] = {}
+
+        # Generate pool + teams
+        self._init_cards()
+        self._init_teams(human_team_name)
+
+    # ---------- Init helpers ----------
+    def _gen_card_name(self) -> str:
+        return "".join(self.rng.choice(NAME_SYLLABLES).capitalize()
+                       for _ in range(self.rng.randint(2, 3)))
+
+    def _gen_team_name(self, idx: int) -> str:
+        word = self.rng.choice(TEAM_WORDS)
+        return f"{word} {idx+1}"
+
+    def _gen_gm_name(self, idx: int) -> str:
+        return f"GM_{idx+1}"
+
+    def _init_cards(self):
+        pool_size = self.rng.randint(MIN_CARD_POOL, MAX_CARD_POOL)
+        for cid in range(pool_size):
+            name = self._gen_card_name()
+            archetype = self.rng.choice(list(Archetype))
+            atk_type = self.rng.choice(list(AtkType))
+            stats = {
+                "atk": self.rng.randint(40, 100),
+                "def": self.rng.randint(40, 100),
+                "speed": self.rng.randint(40, 100),
+                "hit_speed": self.rng.randint(40, 100),
+                "stamina": self.rng.randint(40, 100),
+            }
+            ovr = round(statistics.mean(stats.values()))
+            card = Card(name=name, archetype=archetype, atk_type=atk_type,
+                        stats=stats, ovr=ovr, id=cid)
+            self.cards[cid] = card
+
+    def _init_teams(self, human_team_name: Optional[str]):
+        for tid in range(NUM_TEAMS):
+            team_name = human_team_name if (human_team_name and tid == 0) else self._gen_team_name(tid)
+            gm_name = self._gen_gm_name(tid)
+            team = Team(name=team_name, gm=gm_name)
+            self.teams[tid] = team
+
+    def __str__(self):
+        return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
+
+
 
