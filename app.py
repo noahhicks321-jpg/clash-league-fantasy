@@ -4,6 +4,9 @@
 
 import streamlit as st
 from league import League
+# Ensure session state has a page key
+if "page" not in st.session_state:
+    st.session_state.page = "Home"
 
 st.set_page_config(page_title="Fantasy Clash League", layout="wide")
 
@@ -111,6 +114,11 @@ PAGES = {
     "Draft": page_draft,
 }
 
+st.sidebar.title("Navigation")
+choice = st.sidebar.radio("Go to", list(PAGES.keys()))
+st.session_state.page = choice
+
+PAGES[st.session_state.page]()
 
 
 
