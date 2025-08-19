@@ -79,3 +79,57 @@ st.session_state.page = choice
 
 # ---------- Render Selected Page ----------
 PAGES[st.session_state.page]()
+
+# ------------------------
+# Home Page
+# ------------------------
+def page_home():
+    L: League = st.session_state.league
+
+    st.title("🏠 League Home")
+
+    # --- Season / Game Info + Chemistry ---
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.subheader(f"Season {L.season} • Game {L.current_game+1}/{L.total_games}")
+    with col2:
+        chem = L.get_team_chemistry(L.human_team)
+        st.metric("Team Chemistry", f"{chem:.0f}%", delta=None)
+
+    st.markdown("---")
+
+    # --- Layout: Left (Standings + User Cards) / Right (News Feed) ---
+    left, right = st.columns([2, 1])
+
+    # LEFT SIDE
+    with left:
+        # Quick Standings
+        st.subheader("📊 Quick Standings")
+        standings = L.get_standings()
+        st.table(standings.head(5))  # only top 5 for quick glance
+
+        # User Cards
+        st.subheader("🃏 Your Cards")
+        user_cards = L.get_team_cards(L.human_team)
+        for c in user_cards:
+            st.markdown(
+                f"**{c.name}** (OVR {c.ovr}) — "
+                f"ATK {c.stats['atk']}, DEF {c.stats['def']}, SPD {c.stats['speed']} "
+                f" | Crowns: {c.crowns_total}"
+            )
+
+    # RIGHT SIDE
+    with right:
+        st.subheader("📰 Recent News")
+        feed = L.get_recent_tweets(limit=8)
+        for post in feed:
+            st.markdown(f"- {post}")
+
+    st.markdown("---")
+
+    # --- Upcoming Games ---
+    st.subheader("📅 Upcoming Games")
+    games = L.get_upcoming_games(L.human_team, num=3)
+    for g in games:
+        st.markdown(f"- {g['opponent']} (Game {g['game_num']})")
+
