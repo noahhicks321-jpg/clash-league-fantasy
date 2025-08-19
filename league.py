@@ -29,19 +29,27 @@ class Team:
 
 # ---------- League ----------
 class League:
-    def __init__(self, seed: int = 1337, human_team_name: Optional[str] = None):
+  class League:
+    def __init__(self, seed=1337, human_team_name=None):
         self.rng = random.Random(seed)
         self.season = 1
-        self.cards: Dict[int, Card] = {}
-        self.teams: Dict[int, Team] = {}
-        self.history: List[Dict] = []
 
-        # init
+        # Teams and cards
+        self.teams = []
+        self.cards = {}
+        self.human_team_name = human_team_name
+
+        # Schedule + results
+        self.schedule = {}
+        self.results = []
+
+        # News feed (tweets, GM chatter, etc.)
+        self.news_feed = []
+
+        # Generate cards + teams
         self._init_cards()
-        self._init_teams(human_team_name)
-
-            self.schedule = self._make_schedule()
-        self.news_feed = []  # initialize empty news feed
+        self._init_teams()
+        self._init_schedule()
 
     # --- Initialization ---
     def _init_cards(self):
@@ -534,6 +542,7 @@ League.sim_next_pick = league_sim_next_pick
 League.human_pick = league_human_pick
 League.sim_to_user_turn = league_sim_to_user_turn
 League.sim_to_end = league_sim_to_end
+
 
 
 
