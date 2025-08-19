@@ -1285,6 +1285,34 @@ class League:
         ]
         return reactions
 
+    # ---------- League Leaders ----------
+    def get_league_leaders(self, stat: str, top_n: int = 10):
+        """
+        Return top N players across the league for a given stat.
+        Supported stats: 'crowns', 'avg_score', 'ovr'
+        Currently returns placeholder values until sim engine is wired.
+        """
+        leaders = []
+
+        if stat == "ovr":
+            # top cards by overall rating
+            leaders = sorted(self.cards, key=lambda c: c.ovr, reverse=True)[:top_n]
+            return [(card.name, card.ovr) for card in leaders]
+
+        elif stat == "crowns":
+            # placeholder: each card just gets a fake random score until sim runs
+            leaders = [(card.name, self.rng.randint(10, 100)) for card in self.cards[:top_n]]
+            return leaders
+
+        elif stat == "avg_score":
+            leaders = sorted(self.teams, key=lambda t: t.avg_score, reverse=True)[:top_n]
+            return [(team.name, team.avg_score) for team in leaders]
+
+        else:
+            return []
+
+
+
 
 
 
