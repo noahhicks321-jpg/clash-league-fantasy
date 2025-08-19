@@ -100,14 +100,29 @@ class League:
                 stats=stats, rookie=rookie_flag
             )
 
-    def _init_teams(self):
-        """Create 30 unique teams with GM names. Human is team 1."""
+ def _init_teams(self):
+        """Generate placeholder teams (1 human + AI)."""
         team_names = [
-            "Phoenix", "Wyrms", "Valkyries", "Titans", "Spectres", "Sentinels",
-            "Drakes", "Ronin", "Warlocks", "Samurai", "Lancers", "Gladiators",
-            "Marauders", "Stalkers", "Aces", "Blitz", "Nightfall", "Embers",
-            "Cyclones", "Stormbreak", "Invictus", "Onyx", "Eclipse", "Aurora",
-            "Nebula", "Tempest", "Rampage", "Genesis", "Revenant"
+            "Royal Crushers", "Tower Titans", "Crown Hunters", "Elixir Masters",
+            "Bridge Spammers", "P.E.K.K.A Smashers", "Log Lords", "Miner Mafia",
+            "Balloon Squad", "Rocket Riders", "Zap Squad", "Hog Riders",
+            "Ice Wizards", "Goblin Gang", "Mega Knights", "Golem Pushers",
+            "X-Bow Exiles", "Royal Hogs", "Lava Lords", "Inferno Squad",
+            "Skeleton Army", "Barbarian Brawlers", "Princess Archers", "Dark Princes",
+            "Battle Ram Bashers", "Electro Spirits", "Cannon Carts", "Fireballers",
+            "Sparky Shockers", "Magic Archers"
+        ]  # 30 unique names
+
+        gm_names = [f"GM {i}" for i in range(1, NUM_TEAMS + 1)]
+
+        for tid in range(1, NUM_TEAMS + 1):
+            name = self.human_team_name if tid == 1 and self.human_team_name else team_names[(tid - 1) % len(team_names)]
+            gm = gm_names[tid - 1]
+            team = Team(id=tid, name=name, gm=gm)
+            self.teams.append(team)
+
+        # Assign human team reference
+        self.user_team = self.teams[0]
         ]
         # Guarantee 30 unique names by adding a city prefix
         cities = [
@@ -326,3 +341,4 @@ class League:
 
     def __str__(self):
         return f"League S{self.season} W{self.current_week}: {len(self.teams)} teams, {len(self.cards)} cards"
+
