@@ -8,6 +8,10 @@ from league import League
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
+if "league" not in st.session_state:
+    from league import League
+    st.session_state.league = League(seed=1337, human_team_name=None)
+
 st.set_page_config(page_title="Fantasy Clash League", layout="wide")
 
 # Initialize session state
@@ -119,6 +123,7 @@ choice = st.sidebar.radio("Go to", list(PAGES.keys()))
 st.session_state.page = choice
 
 PAGES[st.session_state.page]()
+
 
 
 
