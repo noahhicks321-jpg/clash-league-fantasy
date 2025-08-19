@@ -80,56 +80,48 @@ st.session_state.page = choice
 # ---------- Render Selected Page ----------
 PAGES[st.session_state.page]()
 
-# ------------------------
-# Home Page
-# ------------------------
 def page_home():
-    L: League = st.session_state.league
-
     st.title("🏠 League Home")
 
-    # --- Season / Game Info + Chemistry ---
+    league = st.session_state.league
+    user_team = league.human_team_name
+
+    # Layout: two columns
     col1, col2 = st.columns([2, 1])
+
+    # --- Left Side ---
     with col1:
-        st.subheader(f"Season {L.season} • Game {L.current_game+1}/{L.total_games}")
-    with col2:
-        chem = L.get_team_chemistry(L.human_team)
-        st.metric("Team Chemistry", f"{chem:.0f}%", delta=None)
+        st.subheader(f"Season {league.season} - Game {league.current_game}")
 
-    st.markdown("---")
+        # Chemistry Meter
+        chem = league.get_team_chemistry(user_team)
+        st.metric("Team Chemistry", f"{chem:.1f}%")
 
-    # --- Layout: Left (Standings + User Cards) / Right (News Feed) ---
-    left, right = st.columns([2, 1])
+        # Upcoming Games
+        st.subheader("Upcoming Games")
+        games = league.get_upcoming_games(user_team)
+        if games:
+            for g in games:
+                st.write(f"Game {g['game_num']}: {g['opponent']} ({'Home' if g['home'] else 'Away'})")
+        else:
+            st.write("No upcoming games scheduled.")
 
-    # LEFT SIDE
-    with left:
         # Quick Standings
-        st.subheader("📊 Quick Standings")
-        standings = L.get_standings()
-        st.table(standings.head(5))  # only top 5 for quick glance
+        st.subheader("Quick Standings")
+        st.dataframe(league.get_standings().head(10))
 
-        # User Cards
-        st.subheader("🃏 Your Cards")
-        user_cards = L.get_team_cards(L.human_team)
-        for c in user_cards:
-            st.markdown(
-                f"**{c.name}** (OVR {c.ovr}) — "
-                f"ATK {c.stats['atk']}, DEF {c.stats['def']}, SPD {c.stats['speed']} "
-                f" | Crowns: {c.crowns_total}"
-            )
+        # Quick Card Stats
+        st.subheader("Your Cards")
+        cards = league.get_team_cards(user_team)
+        if cards:
+            for c in cards:
+                st.write(f"{c.name} | OVR {c.ovr} | Synergy {c.synergy_score}")
+        else:
+            st.write("No cards drafted yet.")
 
-    # RIGHT SIDE
-    with right:
-        st.subheader("📰 Recent News")
-        feed = L.get_recent_tweets(limit=8)
-        for post in feed:
-            st.markdown(f"- {post}")
-
-    st.markdown("---")
-
-    # --- Upcoming Games ---
-    st.subheader("📅 Upcoming Games")
-    games = L.get_upcoming_games(L.human_team, num=3)
-    for g in games:
-        st.markdown(f"- {g['opponent']} (Game {g['game_num']})")
-
+    # --- Right Side ---
+    with col2:
+        st.subheader("Recent News & Tweets")
+        tweets = league.get_recent_tweets()
+        for t in tweets:
+            st.write("💬", t)
