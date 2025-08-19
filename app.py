@@ -1,309 +1,302 @@
-import time
-import random
-import pandas as pd
 import streamlit as st
+import pandas as pd
 from streamlit.components.v1 import html
-from league import get_league, RANK_TIERS, POINT_VALUES
+from league import get_league
 
 # =====================================================
-# 🎮 APP.UI — Streamlit front-end for Clash Royale Fantasy League
-# Expanded UI: dark sports look, neon accents, SimCast, All-Star, Trades, Patches, Rankings
+# Clash Royale Fantasy League — UI (No Dropdowns Edition)
+# - Tabbed navigation only
+# - Clickable cards/logos instead of selects
+# - Calendar & Playoff Bracket viewers
 # =====================================================
 
 st.set_page_config(page_title="Clash Royale Fantasy League", layout="wide")
 
 # -----------------
-# THEME / CSS (dark + neon)
+# THEME / CSS
 # -----------------
-CUSTOM_CSS = """
+CSS = """
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;800&display=swap');
-  html, body, [class*="css"]  { background: radial-gradient(1200px 600px at 20% 10%, #0d1330 0%, #0a0f1d 40%, #080c17 100%) !important; }
-  h1, h2, h3 { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; color: #f5f7ff; }
-  .league-card { background: linear-gradient(145deg, rgba(20,24,45,.9), rgba(15,18,35,.9)); border: 1px solid rgba(255,255,255,.06); border-radius: 18px; padding: 16px; box-shadow: 0 12px 28px rgba(0,0,0,.35); }
-  .metric { background: rgba(255,255,255,.06); border-radius: 14px; padding: 10px 12px; }
+  html, body, [class*="css"] { background: radial-gradient(1200px 600px at 20% 10%, #0d1330 0%, #0a0f1d 40%, #080c17 100%) !important; }
+  h1,h2,h3 { font-family: 'Bebas Neue', sans-serif; letter-spacing: .5px; color: #f5f7ff; }
+  .card { background: linear-gradient(145deg, rgba(20,24,45,.9), rgba(15,18,35,.9)); border: 1px solid rgba(255,255,255,.06); border-radius: 18px; padding: 14px; box-shadow: 0 12px 28px rgba(0,0,0,.35); }
+  .hover:hover { transform: translateY(-2px); transition: .2s ease; box-shadow: 0 18px 30px rgba(0,0,0,.45); }
   .pill { padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; }
   .pill-rank { background: linear-gradient(90deg, #3c1053, #ad5389); color: #fff; }
-  .pill-hot { background: #0fa; color: #012; }
-  .pill-cold { background: #ff5b5b; color: #210; }
-  .hover-card:hover { transform: translateY(-2px); transition: .2s ease; box-shadow: 0 18px 30px rgba(0,0,0,.45); }
+  .tweet { background: rgba(255,255,255,.05); padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,.06); margin-bottom: 8px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .btn { border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.06); padding: 8px 12px; border-radius: 12px; color:#eaf1ff; text-align:center; cursor:pointer; }
+  .btn:hover { background: rgba(255,255,255,.12); }
   .rankbar { height: 10px; border-radius: 999px; background: rgba(255,255,255,.07); overflow: hidden; }
   .rankbar > div { height: 100%; background: linear-gradient(90deg,#00f5d4,#60efff); }
-  .progress { height: 12px; border-radius: 10px; background: rgba(255,255,255,.08); }
-  .progress > div { height: 100%; background: linear-gradient(90deg,#ffe55e,#ff7b00); border-radius: 10px; }
-  .tweet { background: rgba(255,255,255,.05); padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,.06); margin-bottom: 8px; }
-  .badge { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1); padding: 4px 8px; border-radius: 8px; font-size: 12px; }
-  .svg-wrap { border-radius: 18px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); }
-  .stDataFrame, .stTable { color: #e8ecff; }
+  .table-note { color:#cfe3ff; }
 </style>
 """
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+st.markdown(CSS, unsafe_allow_html=True)
 
 # -----------------
-# STATE
+# STATE / DATA
 # -----------------
-L = get_league()
+if "league" not in st.session_state:
+    st.session_state.league = get_league()
+L = st.session_state.league
 
-# Sidebar navigation + Sim controls
-st.sidebar.title("⚔️ League Control Center")
-page = st.sidebar.selectbox(
-    "Jump to", [
-        "Home", "SimCast", "Teams", "Cards", "Stats & Records", "GMs", "Rivalries",
-        "Awards & HOF", "League History", "News", "Trades", "Patches", "Rankings"
-    ]
-)
+# Ensure calendar has teams (re-generate after teams exist)
+L.calendar = L.generate_calendar()
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("Sim Controls")
-col_sb1, col_sb2 = st.sidebar.columns(2)
-if col_sb1.button("Sim Week"):
-    L.sim_week(L.week)
-if col_sb2.button("Seed Playoffs"):
-    L.seed_playoffs()
-col_sb3, col_sb4 = st.sidebar.columns(2)
-if col_sb3.button("Run Playoffs"):
-    L.run_playoffs()
-if col_sb4.button("All-Star Weekend"):
-    L.run_all_star()
-
-st.sidebar.markdown("---")
-if st.sidebar.button("Advance Offseason"):
-    L.finalize_awards()
-    L.offseason_reset()
+if "selected_team" not in st.session_state:
+    st.session_state.selected_team = None
+if "selected_week" not in st.session_state:
+    st.session_state.selected_week = 1
 
 # -----------------
 # HELPERS
 # -----------------
 
-def rank_threshold_table():
-    rows = []
-    for name, threshold, buff in RANK_TIERS:
-        buff_txt = "—"
-        if buff:
-            pct, games = buff
-            buff_txt = f"+{int(pct*100)}% for {games} games"
-        rows.append({"Rank": name, "Min XP": threshold, "Buff": buff_txt})
-    return pd.DataFrame(rows)
-
-
-def svg_logo(svg: str, width: int = 120, height: int = 120):
-    html(f"<div class='svg-wrap' style='width:{width}px;height:{height}px'>{svg}</div>", height=height+4)
-
-
-def meter(label: str, value: float, max_val: float = 1.0):
-    pct = max(0.0, min(1.0, float(value)/max_val))
+def team_logo_block(team_obj):
+    rec = f"{team_obj.wins}-{team_obj.losses}"
     html(f"""
-    <div style='margin:6px 0'>
-      <div style='display:flex;justify-content:space-between'>
-        <div style='color:#cfe3ff'>{label}</div>
-        <div style='color:#fff;font-weight:700'>{int(pct*100)}%</div>
+      <div class='card hover'>
+        <div style='font-size:38px'>{team_obj.logo}</div>
+        <div style='font-weight:800; color:#fff; font-size:18px'>{team_obj.name}</div>
+        <div style='color:#b9c8ff; font-size:13px'>GM: {team_obj.gm.name} • Rank: <span class='pill pill-rank'>{team_obj.gm.rank}</span></div>
+        <div style='margin-top:6px; color:#e8ecff;'>Record: {rec}</div>
       </div>
-      <div class='progress'><div style='width:{pct*100:.1f}%'></div></div>
-    </div>
-    """, height=36)
+    """, height=128)
 
 
-def hot_cold_pill(wins: int, losses: int):
-    if wins + losses < 5:
-        return "<span class='pill pill-hot'>NEW</span>"
-    streak_val = wins - losses
-    if streak_val >= 3:
-        return "<span class='pill pill-hot'>HOT</span>"
-    if streak_val <= -3:
-        return "<span class='pill pill-cold'>COLD</span>"
-    return "<span class='pill' style='background:#889; color:#fff'>EVEN</span>"
+def stat_chip(label, value):
+    html(f"<div class='btn' style='display:inline-block;margin-right:6px'>{label}: <b>{value}</b></div>")
+
+
+def bracket_view(bracket_dict):
+    if not bracket_dict:
+        st.info("Generate the bracket to view Round 1 matchups.")
+        return
+    # Render as 4 columns (R1 only for this minimal viewer)
+    keys = sorted(bracket_dict.keys())
+    cols = st.columns(4)
+    for i, k in enumerate(keys):
+        home, away = bracket_dict[k]
+        with cols[i % 4]:
+            st.markdown(f"**{k}**")
+            st.markdown(f"{home} vs {away}")
+
+
+def render_calendar(cal):
+    st.markdown("#### Regular Season Calendar (20 weeks)")
+    # Week pager buttons (no dropdown)
+    c1, c2, c3, c4, c5 = st.columns(5)
+    for offset, c in enumerate([c1, c2, c3, c4, c5]):
+        base = 1 + offset*4
+        with c:
+            st.markdown("Week Jump")
+            row = st.columns(4)
+            for j in range(4):
+                wk = base + j
+                if wk <= 20 and st.button(f"W{wk}"):
+                    st.session_state.selected_week = wk
+    st.markdown("---")
+
+    wk = st.session_state.selected_week
+    week_obj = next((x for x in cal if x["week"] == wk), None)
+    if not week_obj:
+        st.warning("Week not found.")
+        return
+
+    st.subheader(f"Week {wk} Matchups")
+    grid = st.container()
+    with grid:
+        cols = st.columns(3)
+        for i, (home, away) in enumerate(week_obj["matchups"]):
+            with cols[i % 3]:
+                st.markdown(f"<div class='card hover'>🏟️ <b>{home}</b> vs <b>{away}</b></div>", unsafe_allow_html=True)
 
 # -----------------
-# PAGES
+# TOP NAV TABS (NO DROPDOWNS)
 # -----------------
-if page == "Home":
+main_tabs = st.tabs([
+    "Home", "Teams", "Cards", "GMs", "Calendar", "Playoffs", "Awards & HOF", "Rivalries", "History", "News", "Trades", "Patches", "Rankings"
+])
+
+# HOME
+with main_tabs[0]:
     st.title("🏠 League Home")
-    c1, c2 = st.columns([2, 1])
-
+    c1, c2 = st.columns([2,1])
     with c1:
-        st.subheader("Live Standings")
-        rows = L.get_standings()
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
-
+        st.subheader("Standings")
+        standings_df = L.get_standings()
+        try:
+            st.dataframe(standings_df, use_container_width=True)
+        except Exception:
+            st.table(standings_df)
     with c2:
         st.subheader("Headlines")
         for n in L.get_news():
             st.markdown(f"- {n}")
-        st.subheader("Quick Patch")
-        if st.button("Apply Meta Patch"):
-            L.apply_patch()
-            st.success("Patch applied. Low-pick cards buffed, villains clipped.")
-
-elif page == "SimCast":
-    st.title("🟣 SimCast — Live Game Viewer")
-    left, right = st.columns(2)
-    team_names = [t.name for t in L.teams.values()]
-    with left:
-        home_pick = st.selectbox("Home Team", team_names)
-    with right:
-        away_pick = st.selectbox("Away Team", team_names, index=min(1, len(team_names)-1))
-
-    if home_pick == away_pick:
-        st.warning("Pick two different teams to run SimCast.")
-    else:
-        th = L.get_team(home_pick)
-        ta = L.get_team(away_pick)
         st.markdown("---")
-        c1, c2, c3 = st.columns([1,1,2])
-        with c1:
-            st.markdown("#### Home")
-            svg_logo(th.logo_svg, 110, 110)
-            st.markdown(f"**{th.name}**")
-            meter("Chemistry", th.chemistry, 0.25)
-            meter("Fatigue", th.fatigue, 0.30)
-        with c2:
-            st.markdown("#### Away")
-            svg_logo(ta.logo_svg, 110, 110)
-            st.markdown(f"**{ta.name}**")
-            meter("Chemistry", ta.chemistry, 0.25)
-            meter("Fatigue", ta.fatigue, 0.30)
-        with c3:
-            st.markdown("#### Controls")
-            speed = st.select_slider("Speed", options=["1x","2x","4x","8x"], value="2x")
-            run_btn = st.button("Run SimCast")
+        if st.button("Generate Playoff Bracket"):
+            L.generate_playoff_bracket()
+        st.caption("Use the Playoffs tab to view the bracket.")
 
-        if run_btn:
-            # Simple animation loop faking a 3:00 clock
-            pace = {"1x":0.25, "2x":0.15, "4x":0.08, "8x":0.04}[speed]
-            timer = st.empty()
-            pb = st.progress(0)
-            for tick in range(0, 180):
-                mm = (179 - tick) // 60
-                ss = (179 - tick) % 60
-                timer.markdown(f"### ⏱️ {mm:02d}:{ss:02d}")
-                pb.progress(int((tick/180)*100))
-                time.sleep(pace)
-            # Finalize game once animation is done
-            res = L.sim_game(next(k for k,v in L.teams.items() if v.name==home_pick),
-                             next(k for k,v in L.teams.items() if v.name==away_pick))
-            st.success(f"Final: {home_pick} {res.home_crowns} - {res.away_crowns} {away_pick}")
-            st.write(res.recap)
-            st.json(res.contribution)
-
-elif page == "Teams":
+# TEAMS (grid of clickable cards)
+with main_tabs[1]:
     st.title("🧑‍🤝‍🧑 Teams")
-    team = st.selectbox("Choose a Team", [t.name for t in L.teams.values()])
-    T = L.get_team(team)
-    b1, b2, b3 = st.columns([1,2,2])
-    with b1:
-        svg_logo(T.logo_svg, 140, 140)
-        st.markdown(hot_cold_pill(T.wins, T.losses), unsafe_allow_html=True)
-    with b2:
-        st.header(T.name)
-        st.markdown(f"**GM:** {T.gm.name}  ")
-        st.markdown(f"**Record:** {T.wins}-{T.losses}")
-        st.markdown(f"<span class='pill pill-rank'>{T.gm.rank}</span>", unsafe_allow_html=True)
-        html(f"<div class='rankbar'><div style='width:{min(100, max(0, (T.gm.points/ max(1, T.gm.next_tier_threshold))*100)):.1f}%'></div></div>", height=16)
-    with b3:
-        meter("Chemistry", T.chemistry, 0.25)
-        meter("Fatigue", T.fatigue, 0.30)
-        st.caption("Chemistry persists across seasons. Fatigue caps at +30%.")
+    st.caption("Click any team card to focus below. No dropdowns — pure click nav.")
 
-    st.markdown("### Current Lineup")
-    st.table(pd.DataFrame(T.lineup_stats()))
+    # Grid of team cards as buttons
+    team_objs = L.teams
+    grid_container = st.container()
 
-elif page == "Cards":
+    cols = st.columns(4)
+    for idx, T in enumerate(team_objs):
+        with cols[idx % 4]:
+            if st.button(f"{T.logo} {T.name}"):
+                st.session_state.selected_team = T.name
+            team_logo_block(T)
+
+    st.markdown("---")
+    # Focused team details
+    sel_name = st.session_state.selected_team or (team_objs[0].name if team_objs else None)
+    if sel_name:
+        T = L.get_team(sel_name)
+        st.header(f"{T.logo} {T.name}")
+        cA, cB = st.columns([2,1])
+        with cA:
+            st.markdown("### Overview")
+            stat_chip("GM", T.gm.name)
+            stat_chip("Rank", T.gm.rank)
+            stat_chip("Record", f"{T.wins}-{T.losses}")
+            st.markdown("#### Lineup (3 + 1 backup)")
+            if T.lineup:
+                df = pd.DataFrame([c.to_dict() for c in T.lineup])
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("No lineup set yet.")
+        with cB:
+            st.markdown("### Trophy Case")
+            trophies = T.gm.trophies or ["—"]
+            for tr in trophies:
+                st.markdown(f"<div class='btn'>🏆 {tr}</div>", unsafe_allow_html=True)
+
+# CARDS (search + chips; no dropdowns)
+with main_tabs[2]:
     st.title("🃏 Card Database")
-    cards_df = pd.DataFrame(L.get_all_cards())
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        min_ovr = st.slider("Min OVR", 50, 99, 70)
-    with c2:
-        rookie_only = st.checkbox("Rookies only")
-    with c3:
-        tag_filter = st.multiselect("Tags", ["aggressive", "tank", "retired"]) 
+    cards_df = L.get_all_cards()
 
-    df = cards_df[cards_df["Overall"] >= min_ovr]
-    if rookie_only:
+    # Search bar + filter chips
+    q = st.text_input("Search card name / type (press Enter)")
+    colc1, colc2, colc3 = st.columns(3)
+    with colc1:
+        melee = st.checkbox("Melee")
+    with colc2:
+        ranged = st.checkbox("Ranged")
+    with colc3:
+        rookies_only = st.checkbox("Rookies only")
+
+    df = cards_df.copy()
+    if q:
+        ql = q.lower()
+        df = df[df["Name"].str.lower().str.contains(ql) | df["ATK Type"].str.lower().str.contains(ql)]
+    types = []
+    if melee: types.append("Melee")
+    if ranged: types.append("Ranged")
+    if types:
+        df = df[df["ATK Type"].isin(types)]
+    if rookies_only:
         df = df[df["Rookie"] == True]
-    if tag_filter:
-        df = df[df["Tags"].apply(lambda s: any(t in s for t in tag_filter))]
 
     st.dataframe(df.sort_values("Overall", ascending=False), use_container_width=True)
+    st.caption("Trend arrows reflect buffs/nerfs impact over time.")
 
-elif page == "Stats & Records":
-    st.title("📊 Stats & Records")
-    leaders = pd.DataFrame(L.get_stat_leaders())
-    st.subheader("Contribution % Leaders")
-    st.table(leaders)
-    st.subheader("League Records (sample)")
-    st.info("Records module placeholder — hook to season history + milestones.")
-
-elif page == "GMs":
-    st.title("🧑‍💼 GM Tracker — Ranks, XP, Tweets")
-    gm_df = pd.DataFrame(L.get_gm_leaderboard())
+# GMs (leaderboard + tweets)
+with main_tabs[3]:
+    st.title("🧑‍💼 GM Tracker — Ranks & Tweets")
+    gm_df = L.get_gm_leaderboard()
     st.dataframe(gm_df, use_container_width=True)
-
-    st.markdown("### Rank System & Buffs")
-    st.table(rank_threshold_table())
-
-    st.markdown("### Recent GM Tweets (modern trash talk)")
-    feed = L.get_news_feed()
-    for line in feed[-12:][::-1]:
+    st.markdown("### Recent GM Trash Talk (modern slang)")
+    for line in L.get_news():
         st.markdown(f"<div class='tweet'>{line}</div>", unsafe_allow_html=True)
 
-elif page == "Rivalries":
-    st.title("⚔️ Rivalries")
-    st.dataframe(pd.DataFrame(L.get_rivalries()), use_container_width=True)
-    st.caption("Rivalry W grants a +3% stat boost for 2 games (applied in sim).")
+# CALENDAR (week grid buttons)
+with main_tabs[4]:
+    st.title("📅 Season Calendar")
+    render_calendar(L.calendar)
 
-elif page == "Awards & HOF":
+# PLAYOFFS (bracket viewer)
+with main_tabs[5]:
+    st.title("🏆 Playoffs — Bracket")
+    st.markdown("Click 'Generate Playoff Bracket' from Home if empty.")
+    bracket_view(L.playoff_bracket)
+
+# AWARDS & HOF
+with main_tabs[6]:
     st.title("🏅 Awards & Hall of Fame")
-    col1, col2 = st.columns(2)
-    with col1:
+    c1, c2 = st.columns(2)
+    with c1:
         st.subheader("Season Awards")
-        st.table(pd.DataFrame(L.get_awards()))
-        if st.button("Finalize Awards Now"):
-            L.finalize_awards()
-            st.success("Awards finalized for current season.")
-    with col2:
+        try:
+            st.table(L.get_awards())
+        except Exception:
+            st.info("No awards yet.")
+    with c2:
         st.subheader("Hall of Fame")
-        st.table(pd.DataFrame(L.get_hof()))
+        try:
+            st.table(L.get_hof())
+        except Exception:
+            st.info("No inductees yet.")
 
-elif page == "League History":
+# RIVALRIES
+with main_tabs[7]:
+    st.title("⚔️ Rivalries")
+    try:
+        st.dataframe(L.get_rivalries(), use_container_width=True)
+    except Exception:
+        st.info("Rivalries will populate as the league sim runs.")
+
+# HISTORY
+with main_tabs[8]:
     st.title("📜 League History & Eras")
     hist = L.get_history()
-    st.dataframe(pd.DataFrame(hist), use_container_width=True)
-    st.markdown(f"**Current Era:** {L.era}")
+    if hist:
+        st.dataframe(pd.DataFrame(hist), use_container_width=True)
+    else:
+        st.info("History will fill after seasons are completed.")
 
-elif page == "News":
-    st.title("📰 Media & Storylines")
-    for post in L.get_news_feed()[::-1]:
-        st.markdown(f"<div class='tweet'>{post}</div>", unsafe_allow_html=True)
+# NEWS
+with main_tabs[9]:
+    st.title("📰 News & Fan Reactions")
+    left, right = st.columns(2)
+    with left:
+        st.subheader("GM Tweets")
+        for line in L.get_news():
+            st.markdown(f"<div class='tweet'>{line}</div>", unsafe_allow_html=True)
+    with right:
+        st.subheader("Fan Memes (placeholder)")
+        for i in range(6):
+            st.markdown(f"<div class='tweet'>Fan{i+1}: 'buffs dropped and my squad still HIM 😤'</div>", unsafe_allow_html=True)
 
-elif page == "Trades":
+# TRADES
+with main_tabs[10]:
     st.title("🔄 Trades — Finder & Deadline Week")
     st.subheader("Rumors")
-    st.table(pd.DataFrame(L.get_trade_rumors()))
-    cta1, cta2 = st.columns(2)
-    if cta1.button("Generate Rumor"):
-        L.generate_trade_rumors()
-        st.success("New rumor generated.")
-    if cta2.button("Execute Random Trade"):
-        L.execute_random_trade()
-        st.success("Trade executed. Lineups will re-calc.")
+    st.table(L.get_trade_rumors())
+    st.caption("Use backend functions to generate/execute trades in a future sim update.")
 
-elif page == "Patches":
+# PATCHES
+with main_tabs[11]:
     st.title("🛠️ Patches — Buffs/Nerfs & Meta Shifts")
-    st.table(pd.DataFrame(L.get_patches()))
-    st.caption("Low pick-rate cards are buffed; top pick 'patch villains' get slight nerfs.")
-    if st.button("Apply Patch Now"):
-        L.apply_patch()
-        st.success("Patch applied.")
+    try:
+        st.table(L.get_patches())
+    except Exception:
+        st.info("No patches applied yet.")
 
-elif page == "Rankings":
+# RANKINGS
+with main_tabs[12]:
     st.title("🏆 GM Rankings & Progression")
-    st.dataframe(pd.DataFrame(L.get_gm_leaderboard()), use_container_width=True)
-    st.subheader("Points Model (exact values)")
-    st.json(POINT_VALUES)
-    st.subheader("Rank Thresholds")
-    st.table(rank_threshold_table())
+    st.dataframe(L.get_gm_leaderboard(), use_container_width=True)
+    st.caption("Points model: Win +50 / Loss −50. Playoff values & award bonuses can be added later.")
 
-# Footer mini-help
 st.markdown("---")
-st.caption("Tip: When updating code in GitHub, replace the entire file (select all → paste) to avoid duplicate classes/functions.")
+st.caption("No dropdowns used. Navigation is tabs + clickable cards. To update on GitHub: open file, select all → paste new code → commit.")
