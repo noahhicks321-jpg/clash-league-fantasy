@@ -130,6 +130,86 @@ class Team:
         else:
             self.losses += 1
 
+# ---------- Draft Models ----------
+
+@dataclass
+class DraftPick:
+    round_num: int
+    pick_num: int
+    gm: str
+    team: str
+    card_id: int
+    card_name: str
+    ovr: int
+
+class DraftManager:
+    def __init__(self, league: "League"):
+        self.league = league
+        self.current_round = 1
+        self.pick_in_round = 1
+        self.total_rounds = 4
+        self.draft_log: List[DraftPick] = []
+        self.available_cards: Dict[int, Card] = dict(league.cards)  # copy pool
+        self.draft_order: List[str] = self._generate_draft_order()
+        self.draft: Optional[DraftManager] = None
+
+    def _generate_draft_order(self) -> List[str]:
+        """Snake draft: 1→30, then 30→1, etc."""
+        order = []
+        gms = list(self.league.teams.keys())
+        for rnd in range(1, self.total_rounds + 1):
+            if rnd % 2 == 1:
+                order.extend(gms)
+            else:
+                order.extend(reversed(gms))
+        return order
+
+    def next_up(self) -> Optional[str]:
+        """Which GM is picking now."""
+        total_picks = (self.current_round - 1) * len(self.league.teams) + self.pick_in_round
+        if total_picks > len(self.draft_order):
+            return None
+        return self.draft_order[total_picks - 1]
+
+    def make_pick(self, gm_name: str, card_id: int) -> Optional[DraftPick]:
+        """Assigns a card to GM, removes from pool, advances draft."""
+        if card_id not in self.available_cards:
+            return None
+        card = self.available_cards.pop(card_id)
+        team = self.league.teams[gm_name]
+        team.roster.append(card)
+
+        # Create log entry
+        pick = DraftPick(
+            round_num=self.current_round,
+            pick_num=self.pick_in_round,
+            gm=gm_name,
+            team=team.name,
+            card_id=card.id,
+            card_name=card.name,
+            ovr=card.ovr,
+        )
+        self.draft_log.append(pick)
+
+        # Advance pick counters
+        if self.pick_in_round >= len(self.league.teams):
+            self.pick_in_round = 1
+            self.current_round += 1
+        else:
+            self.pick_in_round += 1
+
+        return pick
+
+    def auto_pick(self, gm_name: str) -> Optional[DraftPick]:
+        """Simple AI: pick best available OVR card."""
+        if not self.available_cards:
+            return None
+        best = max(self.available_cards.values(), key=lambda c: c.ovr)
+        return self.make_pick(gm_name, best.id)
+
+    def draft_finished(self) -> bool:
+        return self.current_round > self.total_rounds
+
 # ---------- Synergy (scaffold) ----------
 @dataclass
 class Synergy:
@@ -298,52 +378,34 @@ class League:
     def __str__(self):
         return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
 
-    # ---------- Draft System ----------
-    def run_draft(self):
-        """Fantasy draft: each team picks 4 cards (3 starters, 1 backup)."""
-        available = list(self.cards.values())
-        self.rng.shuffle(available)
+    # ---------- Draft System (Interactive) ----------
+    def start_draft(self):
+        """Initialize new DraftManager for this season."""
+        self.draft = DraftManager(self)
 
-        draft_results = []
-        for tid, team in self.teams.items():
-            team.roster = []
-            for pick in range(ROSTER_SIZE):
-                if not available:
-                    break
-                card = available.pop()
-                team.roster.append(card)
-                card.pick_history.append(self.season)
-                draft_results.append((team, card))
+    def draft_pick(self, gm_name: str, card_id: int) -> Optional[DraftPick]:
+        """Human or AI pick a card by ID."""
+        if not self.draft:
+            return None
+        return self.draft.make_pick(gm_name, card_id)
 
-            # Assign rookie badge to 4 random cards in league (per season)
-            for card in team.roster:
-                if self.rng.random() < 0.15:  # ~15% chance rookie
-                    card.is_rookie = True
+    def draft_auto_pick(self, gm_name: str) -> Optional[DraftPick]:
+        """Force an AI auto-pick."""
+        if not self.draft:
+            return None
+        return self.draft.auto_pick(gm_name)
 
-        # Retire 3 cards each season
-        retirements = self.rng.sample(list(self.cards.values()), k=3)
-        for c in retirements:
-            c.is_retired = True
+    def get_available_cards(self) -> List[Card]:
+        """Return sorted list of available cards (OVR desc)."""
+        if not self.draft:
+            return []
+        return sorted(self.draft.available_cards.values(), key=lambda c: c.ovr, reverse=True)
 
-        # Draft grades
-        grades = {}
-        for tid, team in self.teams.items():
-            avg_ovr = statistics.mean([c.ovr for c in team.roster])
-            if avg_ovr >= 85:
-                grade = "A"
-            elif avg_ovr >= 75:
-                grade = "B"
-            elif avg_ovr >= 65:
-                grade = "C"
-            elif avg_ovr >= 55:
-                grade = "D"
-            else:
-                grade = "F"
-            grades[team.name] = grade
-
-        return draft_results, grades
+    def get_draft_log(self) -> List[DraftPick]:
+        """Return all picks made so far."""
+        if not self.draft:
+            return []
+        return self.draft.draft_log
 
 
-
-
-
+    
