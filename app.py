@@ -4,7 +4,7 @@
 
 import streamlit as st
 from league import League
-# Ensure session state has a page key
+
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
@@ -119,6 +119,7 @@ choice = st.sidebar.radio("Go to", list(PAGES.keys()))
 st.session_state.page = choice
 
 PAGES[st.session_state.page]()
+
 
 
 
