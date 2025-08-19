@@ -1,85 +1,79 @@
-# === app.py ===
+# === app.py (Home tab only) ===
+
 import streamlit as st
 from league import League
 
-# Initialize session state
+# Initialize league once in session
 if "league" not in st.session_state:
     st.session_state.league = League(seed=1337, human_team_name="Your Team")
-if "page" not in st.session_state:
-    st.session_state.page = "Home"
 
-# ---------- Page Navigation ----------
-PAGES = {
-    "Home": page_home,
-}
-
-st.sidebar.title("Navigation")
-choice = st.sidebar.radio("Go to", list(PAGES.keys()))
-st.session_state.page = choice
-
-# Render current page
-PAGES[st.session_state.page]()
-
-# ---------- Page Functions ----------
 
 def page_home():
-    st.title("🏠 Home")
-    # Add homepage features below (recent news, quick standings, chemistry, etc.)
+    L: League = st.session_state.league
+
+    # Layout: main left column + right sidebar
+    left, right = st.columns([2, 1])
+
+    with left:
+        st.title("🏠 Fantasy Clash Royale League - Home")
+
+        # Season / Week info
+        info = L.get_season_info()
+        st.subheader(f"Season {info['season']} • Week {info['week']}")
+
+        # Quick Standings
+        st.markdown("### 📊 Quick Standings (Top 10)")
+        standings = L.get_standings()
+        data = []
+        for t in standings[:10]:
+            data.append({
+                "Team": t.name,
+                "GM": t.gm,
+                "Record": t.record(),
+                "Crowns ±": t.crowns_for - t.crowns_against
+            })
+        st.table(data)
+
+        # User Team Chemistry
+        chem = L.get_user_team_chemistry()
+        st.markdown("### 🔗 Team Chemistry")
+        st.progress(int(chem) if chem <= 100 else 100)
+        st.caption(f"Chemistry Score: {chem:.1f}/100")
+
+        # User Cards
+        st.markdown("### 🃏 Your Cards")
+        cards = L.get_user_cards()
+        if not cards:
+            st.info("No cards on your team yet — draft coming soon!")
+        else:
+            for c in cards:
+                rookie_flag = "⭐ Rookie" if c.rookie else ""
+                st.markdown(
+                    f"**{c.name}** ({c.ovr} OVR) "
+                    f"- {c.archetype}, {c.atk_type} {rookie_flag}"
+                )
+                st.caption(
+                    f"ATK {c.stats['atk']} | DEF {c.stats['def']} | "
+                    f"SPD {c.stats['speed']} | STAM {c.stats['stamina']}"
+                )
+
+    with right:
+        st.markdown("### 📰 Recent News")
+        for line in L.get_quick_news(6):
+            st.write("• " + line)
+
+        st.markdown("---")
+
+        st.markdown("### 📅 Upcoming Games")
+        games = L.get_upcoming_games(5)
+        if not games:
+            st.info("Schedule not available.")
+        else:
+            for (me, opp, week) in games:
+                st.write(f"Week {week}: {me} vs {opp}")
 
 
-def page_draft():
-    st.title("📝 Draft")
-    # Add draft UI (snake order, rookies, user picks) below
-
-
-def page_games():
-    st.title("🎮 Games & Simulation")
-    # Add upcoming games, live sim, results below
-
-
-def page_cards():
-    st.title("🃏 Cards")
-    # Add card database, stats, synergies, archetypes below
-
-
-def page_standings():
-    st.title("📊 Standings")
-    # Add league standings table below
-
-
-def page_awards():
-    st.title("🏆 Awards & Leaders")
-    # Add league leaders, MVP race, All-Star voting below
-
-
-def page_history():
-    st.title("📖 History & Hall of Fame")
-    # Add past seasons, champions, Hall of Legends below
-
-
-def page_twitter():
-    st.title("🐦 League Twitter Feed")
-    # Add GM tweets, fan chatter, memes below
-
-
-# ---------- Page Navigation ----------
-PAGES = {
-    "Home": page_home,
-    "Draft": page_draft,
-    "Games": page_games,
-    "Cards": page_cards,
-    "Standings": page_standings,
-    "Awards": page_awards,
-    "History": page_history,
-    "Twitter": page_twitter,
-}
-
-st.sidebar.title("Navigation")
-choice = st.sidebar.radio("Go to", list(PAGES.keys()))
-st.session_state.page = choice
-
-# Render selected page
-PAGES[st.session_state.page]()
-
-
-
+# Register pages (if not already defined in your app)
+if "PAGES" not in st.session_state:
+    st.session_state.PAGES = {}
+st.session_state.PAGES["Home"] = page_home
