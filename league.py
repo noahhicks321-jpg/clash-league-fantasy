@@ -137,3 +137,96 @@ class Synergy:
     bonus: int
 
 # scaffold of 90+ synergies will be generated dynamically later
+
+# ---------- Helpers ----------
+def gen_card_name(rng: random.Random) -> str:
+    """Procedurally generate cool card names from syllables."""
+    return "".join(rng.choice(NAME_SYLLABLES).capitalize() for _ in range(rng.randint(2, 3)))
+
+def gen_team_name(rng: random.Random, idx: int) -> str:
+    word = rng.choice(TEAM_WORDS)
+    return f"{word} {idx+1}"
+
+# ---------- Synergy Generation ----------
+def generate_synergy_pool(rng: random.Random) -> List[Synergy]:
+    """Generate a pool of 90+ possible synergies across archetypes."""
+    synergies: List[Synergy] = []
+    archetypes = list(Archetype)
+    for a1, a2 in combinations(archetypes, 2):
+        bonus = rng.randint(1, 10)
+        synergies.append(Synergy(archetypes=(a1, a2), bonus=bonus))
+    # Ensure we hit at least 90 by duplicating with varied bonus
+    while len(synergies) < 95:
+        a1, a2 = rng.sample(archetypes, 2)
+        bonus = rng.randint(1, 10)
+        synergies.append(Synergy(archetypes=(a1, a2), bonus=bonus))
+    return synergies
+
+# ---------- Draft System ----------
+class Draft:
+    def __init__(self, rng: random.Random, season: int, teams: List[Team], card_pool: List[Card]):
+        self.rng = rng
+        self.season = season
+        self.teams = teams
+        self.card_pool = card_pool
+        self.draft_order: List[Team] = []
+        self.grades: Dict[str, str] = {}
+
+    def run_lottery(self):
+        """Simple random shuffle for draft order (lottery style)."""
+        self.draft_order = self.teams[:]
+        self.rng.shuffle(self.draft_order)
+
+    def run_draft(self):
+        """Each team drafts 4 cards: 3 starters + 1 backup."""
+        if not self.draft_order:
+            self.run_lottery()
+
+        available = self.card_pool[:]
+        self.rng.shuffle(available)
+
+        for team in self.draft_order:
+            picks = []
+            for _ in range(ROSTER_SIZE):
+                if not available:
+                    break
+                choice = available.pop()
+                choice.pick_history.append(self.season)
+                if self.season == 1 and _ == 0:
+                    choice.rookie = True
+                picks.append(choice)
+            team.roster = picks
+            self.grades[team.name] = self.grade_team(team)
+
+    def grade_team(self, team: Team) -> str:
+        """Assign draft grade based on OVR, synergy, value."""
+        if not team.roster:
+            return "F"
+        avg_ovr = statistics.mean(c.ovr for c in team.roster)
+        synergy_bonus = self.eval_synergy(team.roster)
+        value_score = avg_ovr + synergy_bonus
+        grade_score = (
+            avg_ovr * GRADE_W_OVR +
+            synergy_bonus * GRADE_W_SYNERGY +
+            value_score * GRADE_W_VALUE
+        )
+        if grade_score >= 85:
+            return "A"
+        elif grade_score >= 75:
+            return "B"
+        elif grade_score >= 65:
+            return "C"
+        elif grade_score >= 55:
+            return "D"
+        else:
+            return "F"
+
+    def eval_synergy(self, roster: List[Card]) -> float:
+        """Simple synergy eval based on archetype overlap."""
+        score = 0
+        for c1, c2 in combinations(roster, 2):
+            if c1.archetype == c2.archetype:
+                score += 5
+        return score
+
+
