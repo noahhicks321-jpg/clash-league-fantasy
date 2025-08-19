@@ -73,4 +73,20 @@ PAGES["Draft"] = page_draft
 # Render current page
 PAGES[st.session_state.page]()
 
+def page_home():
+    st.title("🏆 Fantasy Clash Royale League")
+
+    if st.button("Start New League"):
+        st.session_state.league = League(seed=1337, human_team_name="Your Team")
+        st.success("League created!")
+
+    if st.session_state.league:
+        L = st.session_state.league
+        st.subheader("League Summary")
+        st.write(str(L))
+
+        st.subheader("Teams")
+        for tid, team in L.teams.items():
+            st.write(f"- {team.name} (GM: {team.gm})")
+
 
