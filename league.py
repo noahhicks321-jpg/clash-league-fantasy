@@ -1,188 +1,108 @@
-# === league.py (Milestone 1A foundation) ===
-from __future__ import annotations
+# === league.py ===
+# Fantasy Clash Royale League - Skeleton
+
 import random
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
-# ---------- constants ----------
-NUM_TEAMS = 30
-CARD_POOL_SIZE = 165  # between 160–170
-SEED_DEFAULT = 1337
-
-# ---------- data models ----------
+# ---------- Card ----------
 @dataclass
 class Card:
     id: int
     name: str
     ovr: int
+    archetype: str
+    atk_type: str
+    stats: Dict[str, int] = field(default_factory=dict)
 
+# ---------- Team ----------
 @dataclass
 class Team:
+    id: int
     name: str
     gm: str
-    roster: List[int] = field(default_factory=list)
+    roster: List[int] = field(default_factory=list)  # card IDs
     wins: int = 0
     losses: int = 0
+    crowns_for: int = 0
+    crowns_against: int = 0
 
-    def record(self) -> str:
-        return f"{self.wins}-{self.losses}"
-
-# ---------- league ----------
+# ---------- League ----------
 class League:
-    def __init__(self, seed: int = SEED_DEFAULT, human_team_name: Optional[str] = "Your Team"):
+    def __init__(self, seed: int = 1337, human_team_name: Optional[str] = None):
         self.rng = random.Random(seed)
         self.season = 1
-
-        # store cards + teams
         self.cards: Dict[int, Card] = {}
-        self.teams: List[Team] = []
+        self.teams: Dict[int, Team] = {}
+        self.history: List[Dict] = []
 
+        # init
         self._init_cards()
         self._init_teams(human_team_name)
 
-    # --- init ---
+    # --- Initialization ---
     def _init_cards(self):
-        for cid in range(1, CARD_POOL_SIZE + 1):
-            name = f"Card{cid}"
-            ovr = self.rng.randint(60, 99)
-            self.cards[cid] = Card(id=cid, name=name, ovr=ovr)
+        """Generate placeholder cards for now"""
+        for cid in range(1, 21):  # just 20 to test UI, later 160+
+            card = Card(
+                id=cid,
+                name=f"Card{cid}",
+                ovr=self.rng.randint(60, 95),
+                archetype=self.rng.choice(["Tank", "Healer", "Burst", "Control"]),
+                atk_type=self.rng.choice(["Melee", "Ranged", "Spell"]),
+                stats={"atk": self.rng.randint(40, 100), "def": self.rng.randint(40, 100)},
+            )
+            self.cards[cid] = card
 
     def _init_teams(self, human_team_name: Optional[str]):
-        for i in range(NUM_TEAMS):
-            gm = "You" if i == 0 else f"GM {i}"
-            name = human_team_name if i == 0 else f"Team {i+1}"
-            self.teams.append(Team(name=name, gm=gm))
+        """Generate placeholder teams for now"""
+        for tid in range(1, 5):  # just 4 teams for now, later 30
+            name = human_team_name if tid == 1 and human_team_name else f"Team{tid}"
+            gm_name = f"GM{tid}"
+            self.teams[tid] = Team(id=tid, name=name, gm=gm_name)
 
-    # --- simulate one random game ---
-    def play_game(self, t1: Team, t2: Team):
-        # pick winner randomly for now
-        if self.rng.random() < 0.5:
-            t1.wins += 1
-            t2.losses += 1
-            return f"{t1.name} beat {t2.name}"
-        else:
-            t2.wins += 1
-            t1.losses += 1
-            return f"{t2.name} beat {t1.name}"
+    # --- Draft ---
+    def run_draft(self):
+        """Stub for draft logic"""
+        return {"draft_results": "Not implemented yet"}
 
-    # --- standings ---
-    def standings(self) -> List[Team]:
-        return sorted(self.teams, key=lambda t: t.wins, reverse=True)
+    # --- Simcast ---
+    def sim_game(self, team1: int, team2: int):
+        """Stub for game simulation"""
+        return {"result": f"Simulated {self.teams[team1].name} vs {self.teams[team2].name}"}
+
+    # --- Standings ---
+    def get_standings(self):
+        return sorted(self.teams.values(), key=lambda t: t.wins, reverse=True)
+
+    # --- Leaders & Awards ---
+    def get_league_leaders(self, stat="ovr"):
+        """Return top 5 cards by stat (placeholder)"""
+        return sorted(self.cards.values(), key=lambda c: c.ovr, reverse=True)[:5]
+
+    # --- Cards & Synergies ---
+    def get_synergies(self):
+        return {"synergies": "Not implemented yet"}
+
+    # --- Patch Notes ---
+    def get_patch_notes(self):
+        return {"patch": "No buffs/nerfs yet"}
+
+    # --- Playoffs ---
+    def get_playoff_bracket(self):
+        return {"bracket": "Not implemented yet"}
+
+    # --- Rivalries ---
+    def get_rivalries(self):
+        return {"rivalries": "Not implemented yet"}
+
+    # --- History & HOF ---
+    def get_history(self):
+        return self.history
+
+    # --- Twitter Feed ---
+    def get_twitter_feed(self):
+        return ["No tweets yet"]
 
     def __str__(self):
         return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
-
-# === Milestone 2A: Draft foundation ===
-
-@dataclass
-class DraftPick:
-    round: int
-    pick_num: int
-    team: str
-    card: str
-    ovr: int
-
-class DraftManager:
-    def __init__(self, league: League, rounds: int = 4):
-        self.league = league
-        self.rounds = rounds
-        self.current_round = 1
-        self.current_pick = 1
-        self.picks: List[DraftPick] = []
-        # all cards start in the pool
-        self.available_cards = set(league.cards.keys())
-
-    def next_pick(self) -> Optional[DraftPick]:
-        if self.current_round > self.rounds:
-            return None
-
-        # which team is picking?
-        team_idx = (self.current_pick - 1) % len(self.league.teams)
-        team = self.league.teams[team_idx]
-
-        # choose best card (simplified AI = highest OVR left)
-        if len(self.available_cards) == 0:
-            return None
-        cid = max(self.available_cards, key=lambda c: self.league.cards[c].ovr)
-        card = self.league.cards[cid]
-        self.available_cards.remove(cid)
-
-        # assign card to team
-        team.roster.append(cid)
-
-        pick = DraftPick(
-            round=self.current_round,
-            pick_num=self.current_pick,
-            team=team.name,
-            card=card.name,
-            ovr=card.ovr,
-        )
-        self.picks.append(pick)
-
-        # advance draft
-        self.current_pick += 1
-        if self.current_pick > len(self.league.teams):
-            self.current_pick = 1
-            self.current_round += 1
-
-        return pick
-
-    def is_finished(self) -> bool:
-        return self.current_round > self.rounds
-
-# === Milestone 3A: Human draft support ===
-
-class HumanDraftManager(DraftManager):
-    def __init__(self, league: League, rounds: int = 4, human_team_name: Optional[str] = None):
-        super().__init__(league, rounds)
-        self.human_team = None
-        if human_team_name:
-            for t in league.teams:
-                if t.name == human_team_name:
-                    self.human_team = t
-                    break
-
-    def next_pick(self, chosen_card_id: Optional[str] = None) -> Optional[DraftPick]:
-        if self.current_round > self.rounds:
-            return None
-
-        # which team is picking?
-        team_idx = (self.current_pick - 1) % len(self.league.teams)
-        team = self.league.teams[team_idx]
-
-        # if it's human GM
-        if self.human_team and team == self.human_team and chosen_card_id is None:
-            # pause so UI can let user pick
-            return None
-
-        # pick card
-        if self.human_team and team == self.human_team and chosen_card_id:
-            cid = chosen_card_id
-        else:
-            # AI auto-pick highest OVR left
-            cid = max(self.available_cards, key=lambda c: self.league.cards[c].ovr)
-
-        if cid not in self.available_cards:
-            return None
-        card = self.league.cards[cid]
-        self.available_cards.remove(cid)
-
-        # assign card
-        team.roster.append(cid)
-
-        pick = DraftPick(
-            round=self.current_round,
-            pick_num=self.current_pick,
-            team=team.name,
-            card=card.name,
-            ovr=card.ovr,
-        )
-        self.picks.append(pick)
-
-        # advance draft
-        self.current_pick += 1
-        if self.current_pick > len(self.league.teams):
-            self.current_pick = 1
-            self.current_round += 1
-
-        return pick
