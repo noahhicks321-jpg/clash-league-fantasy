@@ -4,109 +4,82 @@ from league import League
 
 # ---------- Session State Setup ----------
 if "league" not in st.session_state:
-    st.session_state.league = League(seed=1337, human_team_name="You")
+    st.session_state.league = League(seed=1337, human_team_name="Your Team")
 
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
 L = st.session_state.league
 
-# ---------- Page Functions ----------
+# ---------- Page: Home ----------
 def page_home():
     st.title("🏆 Fantasy Clash Royale League")
-    st.write("Welcome to the League Simulator!")
+    st.subheader(f"Season {L.season}")
+    st.write(f"Total Teams: {len(L.teams)}")
+    st.write(f"Total Cards in Pool: {len(L.cards)}")
 
-    st.subheader("League Status")
-    st.write(str(L))  # calls League.__str__
+    st.markdown("---")
+    st.markdown("### League Summary")
+    st.text(str(L))  # uses League.__str__
 
-    if st.button("Start New Draft"):
-        L.start_draft()
-        st.session_state.page = "Draft"
-        st.rerun()
-
-
+# ---------- Page: Draft ----------
 def page_draft():
-    st.title("📝 Fantasy Draft (4 Rounds)")
+    st.title("📋 Fantasy Draft")
 
-    if not L.draft_in_progress:
-        st.info("No draft in progress. Go back to Home to start a new draft.")
+    # Start draft if not already active
+    if L.draft is None:
+        if st.button("Start Draft"):
+            L.start_draft()
+            st.experimental_rerun()
         return
 
-    st.subheader(f"Round {L.draft.round_num} – Pick {L.draft.pick_num}")
+    st.subheader(f"Round {L.draft.round} / {L.draft.max_rounds}")
+    st.write(f"Pick {L.draft.pick_no} of {L.draft.total_picks}")
 
-    # --- Human turn ---
-    if L.draft.current_gm == "You":
-        st.success("✅ Your turn to draft!")
+    gm = L.draft.current_gm()
+    st.markdown(f"**On the clock: {gm}**")
 
+    # If it's the human GM's turn
+    if gm == L.human_team_name:
+        st.markdown("### Available Cards")
         available = L.get_available_cards()
-        for c in available[:25]:  # limit to 25 for readability
-            if st.button(f"Draft {c.name} (OVR {c.ovr})"):
-                L.draft_pick("You", c.id)
-                st.rerun()
 
-        if st.button("Sim My Pick (Auto Pick Best)"):
-            L.draft_auto_pick("You")
-            st.rerun()
+        # Show as buttons
+        for card in available[:20]:  # only show first 20 to avoid overload
+            if st.button(f"Draft {card.name} (OVR {card.ovr})"):
+                L.draft_pick(card.id)
+                st.experimental_rerun()
 
-    # --- AI turn ---
+        # Sim options
+        if st.button("⏭️ Sim Next Pick"):
+            L.draft_auto_pick()
+            st.experimental_rerun()
+        if st.button("⏩ Sim to End of Draft"):
+            while not L.draft.done:
+                L.draft_auto_pick()
+            st.experimental_rerun()
+
     else:
-        st.warning(f"🤖 {L.draft.current_gm}'s turn...")
-        if st.button("Sim Next AI Pick"):
-            L.draft_auto_pick(L.draft.current_gm)
-            st.rerun()
+        # AI pick
+        if st.button(f"Sim AI Pick ({gm})"):
+            L.draft_auto_pick()
+            st.experimental_rerun()
 
-    # --- Controls ---
-    st.divider()
-    if st.button("Sim To End of Draft"):
-        while L.draft_in_progress:
-            L.draft_auto_pick(L.draft.current_gm)
-        st.success("Draft finished!")
-        st.session_state.page = "Draft Results"
-        st.rerun()
-
-    # --- Draft Log ---
+    st.markdown("---")
     st.subheader("📜 Draft Log")
-    for line in reversed(L.get_draft_log()[-50:]):
-        st.write(line)
+    for entry in L.get_draft_log()[::-1]:  # reverse for latest first
+        st.write(entry)
 
-
-def page_draft_results():
-    st.title("📊 Draft Results & Grades")
-
-    if L.draft_in_progress:
-        st.warning("Draft still in progress. Finish draft first.")
-        return
-
-    results, grades = L.get_draft_results()
-
-    st.subheader("🏆 Draft Grades")
-    for gm, grade in grades.items():
-        st.write(f"**{gm}**: {grade}")
-
-    st.subheader("📜 Full Draft Board")
-    for line in results:
-        st.write(line)
-
-
-# ---------- Page Registry ----------
+# ---------- Pages Dictionary ----------
 PAGES = {
     "Home": page_home,
     "Draft": page_draft,
-    "Draft Results": page_draft_results,
 }
 
 # ---------- Sidebar Navigation ----------
 st.sidebar.title("Navigation")
-if st.sidebar.button("🏠 Home"):
-    st.session_state.page = "Home"
-    st.rerun()
-if st.sidebar.button("📝 Draft"):
-    st.session_state.page = "Draft"
-    st.rerun()
-if st.sidebar.button("📊 Draft Results"):
-    st.session_state.page = "Draft Results"
-    st.rerun()
+choice = st.sidebar.radio("Go to", list(PAGES.keys()), index=list(PAGES.keys()).index(st.session_state.page))
+st.session_state.page = choice
 
-# ---------- Render Selected Page ----------
+# ---------- Render Page ----------
 PAGES[st.session_state.page]()
-
