@@ -89,4 +89,28 @@ def page_home():
         for tid, team in L.teams.items():
             st.write(f"- {team.name} (GM: {team.gm})")
 
+def page_draft():
+    st.title("📋 Fantasy Draft")
+
+    if st.button("Run Draft"):
+        results, grades = st.session_state.league.run_draft()
+        st.session_state.draft_results = results
+        st.session_state.draft_grades = grades
+
+    if "draft_results" in st.session_state:
+        st.subheader("Draft Results")
+        for team, card in st.session_state.draft_results:
+            st.write(f"{team.name} drafted {card.name} (OVR {card.ovr})")
+
+        st.subheader("Draft Grades")
+        for team, grade in st.session_state.draft_grades.items():
+            st.write(f"{team}: {grade}")
+
+PAGES = {
+    "Home": page_home,
+    "Draft": page_draft,
+}
+
+
+
 
