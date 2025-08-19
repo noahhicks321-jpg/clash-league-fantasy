@@ -10,9 +10,31 @@ L = st.session_state.league
 
 # ---------- Page Placeholders ----------
 def page_home():
-    st.title("🏠 Home")
-    st.write("Welcome to the Fantasy Clash Royale League.")
-    st.write("Season overview, standings, and featured news will go here.")
+    st.title("🏆 Fantasy Clash Royale League")
+    st.subheader(f"Season {st.session_state.league.season}")
+
+    col1, col2 = st.columns([2,1])
+
+    with col1:
+        st.markdown("### 📊 Quick Standings")
+        standings = st.session_state.league.get_standings()
+        st.table(standings.head(10))  # top 10 teams quick view
+
+        st.markdown("### 🃏 Your Cards Quick Stats")
+        for card in st.session_state.league.get_user_cards():
+            st.metric(label=card.name, value=f"OVR {card.ovr}", delta=f"Chemistry {card.chemistry:.0f}%")
+
+        st.markdown("### 📅 Upcoming Games")
+        for game in st.session_state.league.get_upcoming_games(5):
+            st.write(f"{game['team1']} vs {game['team2']} (Week {game['week']})")
+
+    with col2:
+        st.markdown("### 🧪 Team Chemistry")
+        st.progress(st.session_state.league.get_user_team_chemistry()/100)
+
+        st.markdown("### 📰 Recent News & Tweets")
+        for tweet in st.session_state.league.get_recent_news(5):
+            st.caption(tweet)
 
 def page_draft():
     st.title("📝 Draft")
@@ -204,3 +226,4 @@ def page_draft():
     # Right column: Live feed of picks
     st.markdown("### 📜 Live Picks")
     st.dataframe(pd.DataFrame(dm.last_picks_table(limit=40)), use_container_width=True, hide_index=True)
+
