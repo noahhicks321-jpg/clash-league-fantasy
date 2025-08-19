@@ -140,6 +140,16 @@ class League:
     def get_recent_news(self, n: int = 5):
         """Return recent tweets/news items."""
 
+        def _make_schedule(self):
+        """Very simple round-robin schedule: each team plays every other team once."""
+        schedule = []
+        for i, team_a in enumerate(self.teams):
+            for j, team_b in enumerate(self.teams):
+                if i < j:  # avoid duplicates
+                    schedule.append((team_a.name, team_b.name))
+        random.shuffle(schedule)
+        return schedule
+
     # ------------------------
     # Home Page Helpers
     # ------------------------
@@ -521,4 +531,5 @@ League.sim_next_pick = league_sim_next_pick
 League.human_pick = league_human_pick
 League.sim_to_user_turn = league_sim_to_user_turn
 League.sim_to_end = league_sim_to_end
+
 
