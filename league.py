@@ -1178,7 +1178,30 @@ class Card:
         return len(set(self.pick_history)) / total * 100
 
     def __str__(self):
-        return f"{self.name} (OVR {self.ovr}, {self.archetype.value}, {self.atk_type.value})"
+        return f"{self.name} (OVR {self.ovr}, {self.archetype.value}, {self.atk_type.value})" 
+
+# ---------- Team Model ----------
+@dataclass
+class Team:
+    name: str
+    gm: str
+    roster: List["Card"] = field(default_factory=list)
+    score_history: List[int] = field(default_factory=list)
+
+    def add_game_score(self, score: int):
+        self.score_history.append(score)
+
+    @property
+    def total_score(self) -> int:
+        return sum(self.score_history)
+
+    @property
+    def avg_score(self) -> float:
+        return statistics.mean(self.score_history) if self.score_history else 0.0
+
+    def __str__(self):
+        return f"{self.name} ({self.gm})"
+
 
 
 # === League Class ===
@@ -1244,6 +1267,7 @@ class League:
 
     def __str__(self):
         return f"League S{self.season}: {len(self.teams)} teams, {len(self.cards)} cards"
+
 
 
 
